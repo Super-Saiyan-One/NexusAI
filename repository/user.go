@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"math/rand"
 	"nexus-ai/common"
+	userDto "nexus-ai/dto"
 	dto "nexus-ai/dto/model"
 	"nexus-ai/model"
 	"nexus-ai/utils"
@@ -14,9 +15,10 @@ import (
 
 // UserRepository 用户仓储接口
 type UserRepository interface {
-	Create(user *dto.User) error
-	Update(user *dto.User) error
+	Create(user *dto.User) (*dto.User, error)
+	Update(user *dto.User) (*dto.User, error)
 	Delete(userID string) error
+	Search(userSearch *userDto.SearchRequest) ([]*dto.User, int64, error)
 	GetByID(userID string) (*dto.User, error)
 	GetByEmail(email string) (*dto.User, error)
 	GetByPhone(phone string) (*dto.User, error)
@@ -58,12 +60,6 @@ func (r *userRepository) convertToDTO(model *model.User) *dto.User {
 		utils.SysError("解析用户选项失败:" + err.Error())
 	}
 
-	var deletedAt *utils.MySQLTime
-	if model.DeletedAt.Valid {
-		t := utils.MySQLTime(model.DeletedAt.Time)
-		deletedAt = &t
-	}
-
 	return &dto.User{
 		UserID:        model.UserID,
 		UserGroupID:   model.UserGroupID,
@@ -79,7 +75,7 @@ func (r *userRepository) convertToDTO(model *model.User) *dto.User {
 		Status:        model.Status,
 		CreatedAt:     model.CreatedAt,
 		UpdatedAt:     model.UpdatedAt,
-		DeletedAt:     deletedAt,
+		DeletedAt:     utils.FromDeletedAt(model.DeletedAt),
 	}
 }
 
@@ -104,12 +100,6 @@ func (r *userRepository) convertToModel(dto *dto.User) (*model.User, error) {
 		return nil, fmt.Errorf("转换用户选项失败: %w", err)
 	}
 
-	var deletedAt gorm.DeletedAt
-	if dto.DeletedAt != nil {
-		deletedAt.Time = time.Time(*dto.DeletedAt)
-		deletedAt.Valid = true
-	}
-
 	return &model.User{
 		UserID:        dto.UserID,
 		UserGroupID:   dto.UserGroupID,
@@ -125,26 +115,32 @@ func (r *userRepository) convertToModel(dto *dto.User) (*model.User, error) {
 		Status:        dto.Status,
 		CreatedAt:     dto.CreatedAt,
 		UpdatedAt:     dto.UpdatedAt,
-		DeletedAt:     deletedAt,
+		DeletedAt:     utils.ToDeletedAt(dto.DeletedAt),
 	}, nil
 }
 
 // Create 创建用户
-func (r *userRepository) Create(user *dto.User) error {
+func (r *userRepository) Create(user *dto.User) (*dto.User, error) {
 	model, err := r.convertToModel(user)
 	if err != nil {
-		return err
+		return nil, err
 	}
-	return r.db.Create(model).Error
+	if err := r.db.Create(model).Error; err != nil {
+		return nil, err
+	}
+	return r.convertToDTO(model), nil
 }
 
 // Update 更新用户
-func (r *userRepository) Update(user *dto.User) error {
+func (r *userRepository) Update(user *dto.User) (*dto.User, error) {
 	modelData, err := r.convertToModel(user)
 	if err != nil {
-		return err
+		return nil, err
 	}
-	return r.db.Model(&model.User{}).Where("user_id = ?", user.UserID).Updates(modelData).Error
+	if err := r.db.Model(&model.User{}).Where("user_id = ?", user.UserID).Updates(modelData).Error; err != nil {
+		return nil, err
+	}
+	return r.GetByID(user.UserID)
 }
 
 // Delete 删除用户
@@ -299,7 +295,7 @@ func (r *userRepository) Benchmark(count int) error {
 		}
 
 		// 创建
-		if err := r.Create(testUser); err != nil {
+		if _, err := r.Create(testUser); err != nil {
 			utils.SysError("创建用户失败: " + err.Error())
 			return err
 		}
@@ -313,7 +309,7 @@ func (r *userRepository) Benchmark(count int) error {
 
 		// 更新
 		createdUser.UserOptions.DefaultLevel = rand.Intn(5) + 1
-		if err := r.Update(createdUser); err != nil {
+		if _, err := r.Update(createdUser); err != nil {
 			utils.SysError("更新用户失败: " + err.Error())
 			return err
 		}
@@ -328,4 +324,91 @@ func (r *userRepository) Benchmark(count int) error {
 	duration := time.Since(startTime)
 	utils.SysInfo("基准测试完成，总耗时: " + duration.String() + ", 平均每组操作耗时: " + (duration / time.Duration(count)).String())
 	return nil
+}
+
+// Search 根据搜索条件筛选用户
+func (r *userRepository) Search(req *userDto.SearchRequest) ([]*dto.User, int64, error) {
+	var total int64
+	var users []model.User
+
+	query := r.db.Model(&model.User{})
+
+	// 添加筛选条件
+	if req.UserID != "" {
+		query = query.Where("user_id = ?", req.UserID)
+	}
+	if req.UserGroupID != "" {
+		query = query.Where("user_group_id = ?", req.UserGroupID)
+	}
+	if req.Username != "" {
+		query = query.Where("username LIKE ?", "%"+req.Username+"%")
+	}
+	if req.Email != "" {
+		query = query.Where("email LIKE ?", "%"+req.Email+"%")
+	}
+	if req.Phone != "" {
+		query = query.Where("phone LIKE ?", "%"+req.Phone+"%")
+	}
+	if len(req.Levels) > 0 {
+		query = query.Where("CAST(JSON_EXTRACT(user_options, '$.default_level') AS SIGNED) = ANY(?)", req.Levels)
+	}
+	if req.Status != 0 {
+		query = query.Where("status = ?", req.Status)
+	}
+
+	// 修改 JSON 字段查询的语法
+	if req.MinConcurrentRequests > 0 {
+		query = query.Where("CAST(JSON_EXTRACT(user_options, '$.max_concurrent_requests') AS SIGNED) >= ?", req.MinConcurrentRequests)
+	}
+	if req.MaxConcurrentRequests > 0 {
+		query = query.Where("CAST(JSON_EXTRACT(user_options, '$.max_concurrent_requests') AS SIGNED) <= ?", req.MaxConcurrentRequests)
+	}
+
+	// API折扣范围查询
+	if req.MinAPIDiscount > 0 {
+		query = query.Where("CAST(JSON_EXTRACT(user_options, '$.api_discount') AS DECIMAL(10,2)) >= ?", req.MinAPIDiscount)
+	}
+	if req.MaxAPIDiscount > 0 {
+		query = query.Where("CAST(JSON_EXTRACT(user_options, '$.api_discount') AS DECIMAL(10,2)) <= ?", req.MaxAPIDiscount)
+	}
+
+	// 配额范围查询
+	if req.MinQuota > 0 {
+		query = query.Where("CAST(JSON_EXTRACT(user_quota, '$.total_quota') AS DECIMAL(10,2)) >= ?", req.MinQuota)
+	}
+	if req.MaxQuota > 0 {
+		query = query.Where("CAST(JSON_EXTRACT(user_quota, '$.total_quota') AS DECIMAL(10,2)) <= ?", req.MaxQuota)
+	}
+
+	// 时间范围查询
+	if !req.EarlyLastLoginTime.IsZero() {
+		query = query.Where("last_login_time >= ?", req.EarlyLastLoginTime)
+	}
+	if !req.LateLastLoginTime.IsZero() {
+		query = query.Where("last_login_time <= ?", req.LateLastLoginTime)
+	}
+	if !req.EarlyCreatedTime.IsZero() {
+		query = query.Where("created_at >= ?", req.EarlyCreatedTime)
+	}
+	if !req.LateCreatedTime.IsZero() {
+		query = query.Where("created_at <= ?", req.LateCreatedTime)
+	}
+
+	// 计算总数
+	if err := query.Count(&total).Error; err != nil {
+		return nil, 0, err
+	}
+
+	// 查询数据
+	if err := query.Find(&users).Error; err != nil {
+		return nil, 0, err
+	}
+
+	// 转换为 DTO
+	dtoList := make([]*dto.User, len(users))
+	for i, u := range users {
+		dtoList[i] = r.convertToDTO(&u)
+	}
+
+	return dtoList, total, nil
 }

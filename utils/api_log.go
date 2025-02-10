@@ -1,4 +1,4 @@
-package middleware
+package utils
 
 import (
 	"fmt"
@@ -7,7 +7,7 @@ import (
 	"github.com/gin-gonic/gin"
 )
 
-func SetupLog(server *gin.Engine) {
+func SetupAPILog(server *gin.Engine) {
 	colorBlue := "\033[36m"
 	colorReset := "\033[0m"
 	server.Use(gin.LoggerWithFormatter(func(param gin.LogFormatterParams) string {

@@ -67,7 +67,7 @@ func logCommon(ctx context.Context, logType string, logContent string) {
 	if logType == logINFO {          // 日志类型为INFO时，输出到标准输出
 		writer = gin.DefaultWriter
 	}
-	userID := GetContextValue(ctx.Value(constant.UserIDKey), "test_user_id")
+	userID := GetContextValue(ctx.Value(constant.UserIDKey), "user less")
 	requestID := GetContextValue(ctx.Value(constant.RequestIDKey), "test_request_id")
 	t := time.Now().Format("2006-01-02 15:04:05")
 	switch logType {

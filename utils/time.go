@@ -4,6 +4,8 @@ import (
 	"database/sql/driver"
 	"fmt"
 	"time"
+
+	"gorm.io/gorm"
 )
 
 func GetTime() time.Time {
@@ -30,12 +32,17 @@ type MySQLTime time.Time
 
 // Value 实现 driver.Valuer 接口
 func (t MySQLTime) Value() (driver.Value, error) {
+	// 如果是零值，返回nil
+	if time.Time(t).IsZero() {
+		return nil, nil
+	}
 	return time.Time(t).Format("2006-01-02 15:04:05"), nil
 }
 
 // Scan 实现 sql.Scanner 接口
 func (t *MySQLTime) Scan(value interface{}) error {
 	if value == nil {
+		*t = MySQLTime(time.Time{}) // 设置为零值
 		return nil
 	}
 	switch v := value.(type) {
@@ -43,6 +50,7 @@ func (t *MySQLTime) Scan(value interface{}) error {
 		*t = MySQLTime(v.Truncate(time.Second))
 	case []byte:
 		if len(v) == 0 {
+			*t = MySQLTime(time.Time{})
 			return nil
 		}
 		// 先尝试解析带微秒的格式
@@ -58,6 +66,7 @@ func (t *MySQLTime) Scan(value interface{}) error {
 		*t = MySQLTime(parsedTime.Truncate(time.Second))
 	case string:
 		if v == "" {
+			*t = MySQLTime(time.Time{})
 			return nil
 		}
 		// 先尝试解析带微秒的格式
@@ -79,6 +88,10 @@ func (t *MySQLTime) Scan(value interface{}) error {
 
 // MarshalJSON 实现 json.Marshaler 接口
 func (t MySQLTime) MarshalJSON() ([]byte, error) {
+	// 如果是零值，返回null
+	if time.Time(t).IsZero() {
+		return []byte("null"), nil
+	}
 	return []byte(fmt.Sprintf(`"%s"`, time.Time(t).Format("2006-01-02 15:04:05"))), nil
 }
 
@@ -98,4 +111,29 @@ func (t *MySQLTime) UnmarshalJSON(data []byte) error {
 // String 实现 Stringer 接口
 func (t MySQLTime) String() string {
 	return time.Time(t).Format("2006-01-02 15:04:05")
+}
+
+// IsZero 检查时间是否为零值
+func (t MySQLTime) IsZero() bool {
+	return time.Time(t).IsZero()
+}
+
+// FromDeletedAt 从 gorm.DeletedAt 转换为 *MySQLTime
+func FromDeletedAt(t gorm.DeletedAt) *MySQLTime {
+	if !t.Valid {
+		return nil
+	}
+	mt := MySQLTime(t.Time)
+	return &mt
+}
+
+// ToDeletedAt 从 *MySQLTime 转换为 gorm.DeletedAt
+func ToDeletedAt(t *MySQLTime) gorm.DeletedAt {
+	if t == nil {
+		return gorm.DeletedAt{}
+	}
+	return gorm.DeletedAt{
+		Time:  time.Time(*t),
+		Valid: true,
+	}
 }

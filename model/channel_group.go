@@ -15,6 +15,7 @@ type ChannelGroup struct {
 
 	ChannelGroupPriceFactor common.JSON `gorm:"column:channel_group_price_factor;type:json" json:"channel_group_price_factor"` // 渠道组价格系数
 	ChannelGroupOptions     common.JSON `gorm:"column:channel_group_options;type:json" json:"channel_group_options"`           // 渠道组配置
+	ChannelGroupChannels    common.JSON `gorm:"column:channel_group_channels;type:json" json:"channel_group_channels"`         // 渠道组渠道
 
 	CreatedAt utils.MySQLTime `gorm:"column:created_at;index;not null" json:"created_at"` // 创建时间
 	UpdatedAt utils.MySQLTime `gorm:"column:updated_at;not null" json:"updated_at"`       // 更新时间

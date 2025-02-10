@@ -20,6 +20,12 @@ type ChannelGroupOptions struct {
 	DiscountExpireAt      utils.MySQLTime `json:"discount_expire_at"`      // 折扣过期时间
 }
 
+// ChannelGroupChannels 渠道组渠道
+type ChannelGroupChannels struct {
+	Channels  []string            `json:"channels"`   // 渠道
+	ModelsMap map[string][]string `json:"models_map"` // 模型可用渠道表
+}
+
 // ChannelGroup DTO结构
 type ChannelGroup struct {
 	ChannelGroupID          string                  `json:"channel_group_id"`           // 渠道组ID
@@ -27,7 +33,9 @@ type ChannelGroup struct {
 	ChannelGroupDescription string                  `json:"channel_group_description"`  // 渠道组描述
 	ChannelGroupPriceFactor ChannelGroupPriceFactor `json:"channel_group_price_factor"` // 渠道组价格系数
 	ChannelGroupOptions     ChannelGroupOptions     `json:"channel_group_options"`      // 渠道组配置
-	CreatedAt               utils.MySQLTime         `json:"created_at"`                 // 创建时间
-	UpdatedAt               utils.MySQLTime         `json:"updated_at"`                 // 更新时间
-	DeletedAt               *utils.MySQLTime        `json:"deleted_at,omitempty"`       // 删除时间
+	ChannelGroupChannels    ChannelGroupChannels    `json:"channel_group_channels"`     // 渠道组下属渠道
+
+	CreatedAt utils.MySQLTime  `json:"created_at"`           // 创建时间
+	UpdatedAt utils.MySQLTime  `json:"updated_at"`           // 更新时间
+	DeletedAt *utils.MySQLTime `json:"deleted_at,omitempty"` // 删除时间
 }

@@ -14,3 +14,11 @@ func GetMaxInt(number1 int, number2 int) int { // 获取两个整数中的最大
 	}
 	return number2
 }
+
+func SliceToMap(slice []string) map[string]struct{} { // 将切片转换为map
+	m := make(map[string]struct{}, len(slice))
+	for _, s := range slice {
+		m[s] = struct{}{}
+	}
+	return m
+}

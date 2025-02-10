@@ -19,6 +19,7 @@ type ModelRepository interface {
 	Delete(modelID string) error
 	GetByID(modelID string) (*dto.Model, error)
 	GetByName(name string) (*dto.Model, error)
+	GetByAlias(aliasName string) (*dto.Model, error)
 	List(page, pageSize int) ([]*dto.Model, int64, error)
 	ListByType(modelType string, page, pageSize int) ([]*dto.Model, int64, error)
 	ListByProvider(provider string, page, pageSize int) ([]*dto.Model, int64, error)
@@ -161,7 +162,21 @@ func (r *modelRepository) GetByID(modelID string) (*dto.Model, error) {
 // GetByName 根据名称获取模型
 func (r *modelRepository) GetByName(name string) (*dto.Model, error) {
 	var model model.Model
-	if err := r.db.Where("model_name = ?", name).First(&model).Error; err != nil {
+	if err := r.db.Where("model_name = ? AND deleted_at IS NULL", name).
+		Order("created_at DESC").
+		First(&model).Error; err != nil {
+		return nil, err
+	}
+	return r.convertToDTO(&model), nil
+}
+
+// GetByAlias 根据别名获取模型
+func (r *modelRepository) GetByAlias(aliasName string) (*dto.Model, error) {
+	var model model.Model
+	if err := r.db.Where("(CAST(JSON_EXTRACT(model_alias, '$.display_name') AS CHAR(255)) = ? OR CAST(JSON_EXTRACT(model_alias, '$.request_name') AS CHAR(255)) = ?) AND deleted_at IS NULL",
+		aliasName, aliasName).
+		Order("created_at DESC").
+		First(&model).Error; err != nil {
 		return nil, err
 	}
 	return r.convertToDTO(&model), nil

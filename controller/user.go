@@ -1,93 +1,194 @@
 package controller
 
 import (
-	"github.com/gin-gonic/gin"
-	"github.com/google/uuid"
 	"net/http"
-	"nexus-ai/dto/model"
-	"nexus-ai/middleware"
+	"nexus-ai/constant"
+	userDto "nexus-ai/dto"
+	dto "nexus-ai/dto/model"
+	"nexus-ai/model"
 	"nexus-ai/repository"
+	"nexus-ai/service"
 	"nexus-ai/utils"
+
+	"github.com/gin-gonic/gin"
 )
 
-// UserController 用户控制器
-type UserController struct {
-	userRepo repository.UserRepository
+type UserController interface {
+	GetUserRepo() repository.UserRepository
+	UserRegister(c *gin.Context)
+	UserLogin(c *gin.Context)
+	UserSearch(c *gin.Context)
+	UserDelete(c *gin.Context)
+	UserLogout(c *gin.Context)
+	UserUpdate(c *gin.Context)
+	UserPassword(c *gin.Context)
 }
 
-// NewUserController 创建用户控制器实例
-func NewUserController(userRepo repository.UserRepository) *UserController {
-	return &UserController{userRepo: userRepo}
+type userController struct {
+	service service.UserService
 }
 
-// RegisterRequest 用户注册请求结构体
-type RegisterRequest struct {
-	Email    string `json:"email" binding:"required,email"` // 邮箱，必填，格式需正确
-	Password string `json:"password" binding:"required"`    // 密码，必填
+func NewUserController() UserController {
+	userService := service.NewUserService()
+	return &userController{service: userService}
 }
 
-// LoginRequest 用户登录请求结构体
-type LoginRequest struct {
-	Email    string `json:"email" binding:"required,email"` // 邮箱，必填
-	Password string `json:"password" binding:"required"`    // 密码，必填
+func (uc *userController) GetUserRepo() repository.UserRepository {
+	return repository.NewUserRepository(model.GetDB())
 }
 
-// Register 注册用户
-func (uc *UserController) Register(c *gin.Context) {
-	var request RegisterRequest
-
-	// 将请求体中的数据绑定到 RegisterRequest 结构体
-	if err := c.ShouldBindJSON(&request); err != nil {
-		c.JSON(http.StatusBadRequest, gin.H{"error": "无效的请求参数"})
+// UserRegister 用户注册
+func (uc *userController) UserRegister(c *gin.Context) {
+	var user dto.User
+	if err := c.ShouldBindJSON(&user); err != nil {
+		utils.CommonError(c, http.StatusBadRequest, "Invalid request data: "+err.Error(), constant.ErrorTypeUserPrefix+"_register")
 		return
 	}
-
-	// 创建 User 实例并填充数据
-	user := model.User{
-		Email:    request.Email,
-		Status:   1, // 假设状态为 1 表示可用
-		Phone:    uuid.New().String(),
-		Password: utils.HashPassword(request.Password), // 设定哈希密码
+	user.UserID = utils.GenerateRandomUUID(12)
+	if user.Username == "" {
+		user.Username = utils.GenerateRandomString(8)
 	}
-
-	// 调用 UserRepository 创建用户
-	if err := uc.userRepo.Create(&user); err != nil {
-		c.JSON(http.StatusInternalServerError, gin.H{"error": "注册失败: " + err.Error()})
-		return
+	user.Password = utils.HashPassword(user.Password)
+	user.Status = 1
+	user.OAuthInfo = dto.OAuthInfo{}
+	user.UserQuota = dto.UserQuota{
+		TotalQuota:  constant.DefaultUserQuota,
+		FrozenQuota: 0,
+		GiftQuota:   constant.DefaultUserQuota,
 	}
-
-	// 注册成功，返回 201 状态码和创建的用户信息
-	c.JSON(http.StatusCreated, gin.H{"message": "注册成功", "email": user.Email})
-}
-
-// Login 用户登录
-func (uc *UserController) Login(c *gin.Context) {
-	var request LoginRequest
-
-	// 将请求体中的数据绑定到 LoginRequest 结构体
-	if err := c.ShouldBindJSON(&request); err != nil {
-		c.JSON(http.StatusBadRequest, gin.H{"error": "无效的请求参数"})
-		return
+	user.UserOptions = dto.UserOptions{
+		MaxConcurrentRequests:    constant.DefaultMaxConcurrentRequests,
+		DefaultLevel:             constant.DefaultUserLevel,
+		APIDiscount:              constant.DefaultAPIDiscount,
+		QuotaNotifyEmail:         user.Email,
+		ReceiveQuotaNotifyMail:   1,
+		BillingNotifyEmail:       user.Email,
+		ReceiveBillingNotifyMail: 1,
+		PaymentNotifyEmail:       user.Email,
+		ReceivePaymentNotifyMail: 1,
 	}
-
-	// 查询用户
-	user, err := uc.userRepo.GetByEmail(request.Email) // 使用邮箱查询用户
+	userRepo := uc.GetUserRepo()
+	registeredUser, err := uc.service.UserRegister(userRepo, &user)
 	if err != nil {
-		c.JSON(http.StatusUnauthorized, gin.H{"error": "用户不存在或密码错误"})
+		utils.CommonError(c, http.StatusBadRequest, "Failed to register user: "+err.Error(), constant.ErrorTypeUserPrefix+"_register")
 		return
 	}
 
-	// 验证密码
-	if !utils.CheckPasswordHash(request.Password, user.Password) {
-		c.JSON(http.StatusUnauthorized, gin.H{"error": "用户不存在或密码错误"})
+	utils.CommonSuccess(c, http.StatusOK, "User registered successfully", constant.SuccessTypeUserPrefix+"_register", gin.H{"user": registeredUser})
+}
+
+// UserLogin 用户登录
+func (uc *userController) UserLogin(c *gin.Context) {
+	var loginRequest userDto.LoginRequest
+	if err := c.ShouldBindJSON(&loginRequest); err != nil {
+		utils.CommonError(c, http.StatusBadRequest, "Invalid request data: "+err.Error(), constant.ErrorTypeUserPrefix+"_login")
 		return
 	}
 
-	token, err := middleware.GenerateToken(utils.HashPassword(user.Password))
+	userRepo := uc.GetUserRepo()
+	user, tokens, err := uc.service.UserLogin(userRepo, &loginRequest)
 	if err != nil {
-		c.JSON(http.StatusInternalServerError, "生成令牌失败")
+		utils.CommonError(c, http.StatusUnauthorized, "Login failed: "+err.Error(), constant.ErrorTypeUserPrefix+"_login")
 		return
 	}
-	// 返回登录成功的信息和用户的邮箱
-	c.JSON(http.StatusOK, gin.H{"message": "登录成功", "token": token})
+
+	utils.CommonSuccess(c, http.StatusOK, "Login successful", constant.SuccessTypeUserPrefix+"_login", gin.H{"user": user, "tokens": tokens})
+}
+
+// UserSearch 用户搜索
+func (uc *userController) UserSearch(c *gin.Context) {
+	var userSearch userDto.SearchRequest
+	if err := c.ShouldBindJSON(&userSearch); err != nil {
+		utils.CommonError(c, http.StatusBadRequest, "Invalid request data: "+err.Error(), constant.ErrorTypeUserPrefix+"_search")
+		return
+	}
+
+	userRepo := uc.GetUserRepo()
+	users, err := uc.service.UserSearch(userRepo, &userSearch)
+	if err != nil {
+		utils.CommonError(c, http.StatusBadRequest, "Failed to search users: "+err.Error(), constant.ErrorTypeUserPrefix+"_search")
+		return
+	}
+
+	utils.CommonSuccess(c, http.StatusOK, "Users searched successfully", constant.SuccessTypeUserPrefix+"_search", gin.H{"users": users})
+}
+
+// UserDelete 删除用户
+func (uc *userController) UserDelete(c *gin.Context) {
+	userID := c.Param("user_id")
+	if userID == "" {
+		utils.CommonError(c, http.StatusBadRequest, "user_id is required", constant.ErrorTypeUserPrefix+"_delete")
+		return
+	}
+
+	userRepo := uc.GetUserRepo()
+	err := uc.service.UserDelete(userRepo, userID)
+	if err != nil {
+		utils.CommonError(c, http.StatusBadRequest, "Failed to delete user: "+err.Error(), constant.ErrorTypeUserPrefix+"_delete")
+		return
+	}
+
+	utils.CommonSuccess(c, http.StatusOK, "User deleted successfully", constant.SuccessTypeUserPrefix+"_delete", gin.H{"message": "User deleted successfully"})
+}
+
+// UserLogout 用户登出
+func (uc *userController) UserLogout(c *gin.Context) {
+	userID := c.GetString(string(constant.UserIDKey))
+	if userID == "" {
+		utils.CommonError(c, http.StatusBadRequest, "user_id is required", constant.ErrorTypeUserPrefix+"_logout")
+		return
+	}
+
+	userRepo := uc.GetUserRepo()
+	err := uc.service.UserLogout(userRepo, userID)
+	if err != nil {
+		utils.CommonError(c, http.StatusBadRequest, "Failed to logout user: "+err.Error(), constant.ErrorTypeUserPrefix+"_logout")
+		return
+	}
+
+	utils.CommonSuccess(c, http.StatusOK, "User logged out successfully", constant.SuccessTypeUserPrefix+"_logout", gin.H{"message": "User logged out successfully"})
+}
+
+// UserUpdate 更新用户信息
+func (uc *userController) UserUpdate(c *gin.Context) {
+	var user dto.User
+	if err := c.ShouldBindJSON(&user); err != nil {
+		utils.CommonError(c, http.StatusBadRequest, "Invalid request data: "+err.Error(), constant.ErrorTypeUserPrefix+"_update")
+		return
+	}
+
+	userRepo := uc.GetUserRepo()
+	existingUser, err := userRepo.GetByID(user.UserID)
+	if err != nil || existingUser.UserID != user.UserID {
+		utils.CommonError(c, http.StatusForbidden, "Unauthorized operation", constant.ErrorTypeUserPrefix+"_update")
+		return
+	}
+
+	updatedUser, err := uc.service.UserUpdate(userRepo, &user)
+	if err != nil {
+		utils.CommonError(c, http.StatusBadRequest, "Failed to update user: "+err.Error(), constant.ErrorTypeUserPrefix+"_update")
+		return
+	}
+
+	utils.CommonSuccess(c, http.StatusOK, "User updated successfully", constant.SuccessTypeUserPrefix+"_update", gin.H{"user": updatedUser})
+}
+
+// UserPassword 更新密码
+func (uc *userController) UserPassword(c *gin.Context) {
+	var passwordRequest userDto.PasswordRequest
+
+	if err := c.ShouldBindJSON(&passwordRequest); err != nil {
+		utils.CommonError(c, http.StatusBadRequest, "Invalid request data: "+err.Error(), constant.ErrorTypeUserPrefix+"_update_password")
+		return
+	}
+
+	userID := c.GetString(string(constant.UserIDKey))
+	userRepo := uc.GetUserRepo()
+	err := uc.service.UserPassword(userRepo, userID, passwordRequest.OldPassword, passwordRequest.NewPassword)
+	if err != nil {
+		utils.CommonError(c, http.StatusBadRequest, "Failed to update password: "+err.Error(), constant.ErrorTypeUserPrefix+"_update_password")
+		return
+	}
+
+	utils.CommonSuccess(c, http.StatusOK, "Password updated successfully", constant.SuccessTypeUserPrefix+"_update_password", gin.H{})
 }

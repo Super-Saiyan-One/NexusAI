@@ -9,6 +9,7 @@ import (
 	"nexus-ai/model"
 	"nexus-ai/mysql"
 	"nexus-ai/redis"
+	"nexus-ai/repository"
 	"nexus-ai/test"
 
 	"nexus-ai/router"
@@ -56,13 +57,21 @@ func main() {
 			utils.SysError("Redis | " + err.Error())
 		}
 	}()
-	utils.SysInfo("是否执行MySQL基准测试: " + strconv.Itoa(*mysqlTest))
+
 	// 执行MySQL基准测试
 	if *mysqlTest > 0 {
+		utils.SysInfo("执行MySQL基准测试")
 		test.TestRepository(*mysqlTest)
+		utils.SysInfo("MySQL基准测试完成")
 	}
+
+	// 执行root用户生成
+	repository.RootGenerate(model.GetDB())
+	utils.SysInfo("RootGenerate completed")
+
 	// 执行Redis基准测试
 	if *redisTest > 0 {
+		utils.SysInfo("执行Redis基准测试")
 		if err := redis.RunBenchmarks(); err != nil {
 			utils.SysError("Redis benchmarks failed: " + err.Error())
 		} else {
@@ -85,11 +94,17 @@ func main() {
 		})
 	}))
 	utils.SysInfo("GIN Config setup completed")
-	server.Use(middleware.RequestIDMiddleware()) // 添加requestID中间件 生成requestID
-	middleware.SetupLog(server)                  // 为gin Engine添加日志服务 记录请求日志
+
+	// server.Use(middleware.TestRootMiddleware()) // 添加root用户中间件
+	server.Use(middleware.RequestIDGenerateMiddleware()) // 添加requestID中间件 生成requestID
 	utils.SysInfo("Middleware setup completed")
+
+	utils.SetupAPILog(server) // 为gin Engine添加日志服务 记录请求日志
+	utils.SysInfo("API Log setup completed")
+
 	router.SetupRouter(server)
 	utils.SysInfo("Router setup completed")
+
 	backendPort, _ := strconv.Atoi(utils.GetEnv("BACKEND_PORT", constant.BackendPort))
 	utils.SysInfo("Server starting on port " + strconv.Itoa(backendPort))
 	err := server.Run(":" + strconv.Itoa(backendPort))

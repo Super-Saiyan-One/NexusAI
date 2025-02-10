@@ -5,6 +5,7 @@ import "nexus-ai/utils"
 // TokenChannels 令牌渠道配置
 type TokenChannels struct {
 	ExtraAllowedChannels []string `json:"extra_allowed_channels"` // 额外允许使用的渠道ID列表
+	PriorityChannels     []string `json:"priority_channels"`      // 优先使用的渠道ID列表
 	DefaultTestChannel   string   `json:"default_test_channel"`   // 默认测试渠道ID
 }
 
@@ -24,6 +25,7 @@ type TokenOptions struct {
 	DisallowedIPs         []string `json:"disallowed_ips"`          // IP黑名单
 	RequireSignature      bool     `json:"require_signature"`       // 是否要求签名
 	DisableRateLimit      bool     `json:"disable_rate_limit"`      // 是否禁用频率限制
+	AvailableLevels       []int    `json:"available_levels"`        // 可用等级
 }
 
 // Token DTO结构

@@ -15,7 +15,7 @@ type ModelGroupPriceFactor struct {
 // ModelGroupOptions 模型组配置选项
 type ModelGroupOptions struct {
 	MaxConcurrentRequests int             `json:"max_concurrent_requests"` // 最大并发请求数
-	DefaultLevel          int             `json:"default_level"`           // 默认等级   // 额外允许使用的模型列表
+	DefaultLevel          int             `json:"default_level"`           // 默认等级
 	Discount              float64         `json:"discount"`                // 折扣
 	DiscountExpireAt      utils.MySQLTime `json:"discount_expire_at"`      // 折扣过期时间
 }
