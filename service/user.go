@@ -11,9 +11,9 @@ import (
 type UserService interface {
 	UserRegister(repo repository.UserRepository, user *dto.User) (*dto.User, error)
 	UserLogin(repo repository.UserRepository, user *userDto.LoginRequest) (*dto.User, []string, error)
-	UserSearch(repo repository.UserRepository, userSearch *userDto.SearchRequest) ([]*dto.User, error)
+	UserSearch(repo repository.UserRepository, userSearch *userDto.UserSearchRequest) ([]*dto.User, error)
 	UserDelete(repo repository.UserRepository, userID string) error
-	UserLogout(repo repository.UserRepository, userID string) error
+	UserLogout(repo repository.UserRepository, userID string, accessToken, refreshToken string) error
 	UserUpdate(repo repository.UserRepository, user *dto.User) (*dto.User, error)
 	UserPassword(repo repository.UserRepository, userID string, oldPassword, newPassword string) error
 }
@@ -59,11 +59,11 @@ func (us *userService) UserLogin(repo repository.UserRepository, user *userDto.L
 	if err != nil {
 		return nil, nil, err
 	}
-
+	repo.UpdateLoginTime(targetUser.UserID)                     // 更新用户最后一次登录时间
 	return targetUser, []string{accessToken, refreshToken}, nil // 返回用户信息和token
 }
 
-func (us *userService) UserSearch(repo repository.UserRepository, userSearch *userDto.SearchRequest) ([]*dto.User, error) {
+func (us *userService) UserSearch(repo repository.UserRepository, userSearch *userDto.UserSearchRequest) ([]*dto.User, error) {
 	users, _, err := repo.Search(userSearch)
 	if err != nil {
 		return nil, err
@@ -87,7 +87,7 @@ func (us *userService) UserDelete(repo repository.UserRepository, userID string)
 	return nil
 }
 
-func (us *userService) UserLogout(repo repository.UserRepository, userID string) error {
+func (us *userService) UserLogout(repo repository.UserRepository, userID string, accessToken, refreshToken string) error {
 	existingUser, _ := repo.GetByID(userID)
 	if existingUser == nil { // 用户不存在
 		return errors.New("user not found")
@@ -98,7 +98,9 @@ func (us *userService) UserLogout(repo repository.UserRepository, userID string)
 	if existingUser.Status == 0 { // 用户被禁用
 		return errors.New("user is disabled")
 	}
-	return InvalidateAllUserTokens(userID) // 使指定用户的所有token失效
+	InvalidateToken(accessToken)
+	InvalidateToken(refreshToken)
+	return nil
 }
 
 func (us *userService) UserUpdate(repo repository.UserRepository, user *dto.User) (*dto.User, error) {

@@ -16,8 +16,8 @@ type ChannelGroupPriceFactor struct {
 type ChannelGroupOptions struct {
 	MaxConcurrentRequests int             `json:"max_concurrent_requests"` // 最大并发请求数
 	DefaultLevel          int             `json:"default_level"`           // 默认等级
-	Discount              float64         `json:"discount"`                // 折扣
-	DiscountExpireAt      utils.MySQLTime `json:"discount_expire_at"`      // 折扣过期时间
+	APIDiscount           float64         `json:"api_discount"`            // API折扣
+	APIDiscountExpireAt   utils.MySQLTime `json:"api_discount_expire_at"`  // API折扣过期时间
 }
 
 // ChannelGroupChannels 渠道组渠道

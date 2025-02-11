@@ -40,11 +40,6 @@ func (r *usageRepository) convertToDTO(model *model.Usage) *dto.Usage {
 	if model == nil {
 		return nil
 	}
-	var deletedAt *utils.MySQLTime
-	if model.DeletedAt.Valid {
-		t := utils.MySQLTime(model.DeletedAt.Time)
-		deletedAt = &t
-	}
 	return &dto.Usage{
 		UsageID:          model.UsageID,
 		TokenID:          model.TokenID,
@@ -60,7 +55,7 @@ func (r *usageRepository) convertToDTO(model *model.Usage) *dto.Usage {
 		TotalAmount:      model.TotalAmount,
 		CreatedAt:        model.CreatedAt,
 		UpdatedAt:        model.UpdatedAt,
-		DeletedAt:        deletedAt,
+		DeletedAt:        utils.FromDeletedAt(model.DeletedAt),
 	}
 }
 
@@ -68,12 +63,6 @@ func (r *usageRepository) convertToDTO(model *model.Usage) *dto.Usage {
 func (r *usageRepository) convertToModel(dto *dto.Usage) *model.Usage {
 	if dto == nil {
 		return nil
-	}
-
-	var deletedAt gorm.DeletedAt
-	if dto.DeletedAt != nil {
-		deletedAt.Time = time.Time(*dto.DeletedAt)
-		deletedAt.Valid = true
 	}
 
 	return &model.Usage{
@@ -91,7 +80,7 @@ func (r *usageRepository) convertToModel(dto *dto.Usage) *model.Usage {
 		TotalAmount:      dto.TotalAmount,
 		CreatedAt:        dto.CreatedAt,
 		UpdatedAt:        dto.UpdatedAt,
-		DeletedAt:        deletedAt,
+		DeletedAt:        utils.ToDeletedAt(dto.DeletedAt),
 	}
 }
 

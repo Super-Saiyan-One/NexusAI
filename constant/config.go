@@ -55,7 +55,9 @@ const ( // 默认rabbitmq配置
 )
 
 const (
-	RootUserName = "root"
+	RootUserName     = "root"
+	RootUserEmail    = "root@nexus.ai"
+	RootUserPassword = "nexusai@2025"
 )
 
 const (
@@ -69,8 +71,65 @@ const (
 )
 
 const (
-	DefaultMaxConcurrentRequests = 100
-	DefaultUserQuota             = 1
-	DefaultUserLevel             = 1
-	DefaultAPIDiscount           = 1
+	DefaultUserMaxConcurrentRequests = 100
+	DefaultUserQuota                 = 1
+	DefaultUserLevel                 = 1
+	DefaultUserAPIDiscount           = 1
+)
+
+const (
+	DefaultUserGroupMaxConcurrentRequests = 100
+	DefaultUserGroupDefaultLevel          = 1
+	DefaultUserGroupAPIDiscount           = 1
+	DefaultUserGroupRequestPriceFactor    = 1
+	DefaultUserGroupResponsePriceFactor   = 1
+	DefaultUserGroupCompletionPriceFactor = 1
+	DefaultUserGroupCachePriceFactor      = 1
+)
+
+const (
+	DefaultModelAPIDiscount           = 1
+	DefaultModelRequestPriceFactor    = 1
+	DefaultModelResponsePriceFactor   = 1
+	DefaultModelCompletionPriceFactor = 1
+	DefaultModelCachePriceFactor      = 1
+)
+
+const (
+	DefaultModelGroupMaxConcurrentRequests = 100
+	DefaultModelGroupDefaultLevel          = 1
+	DefaultModelGroupAPIDiscount           = 1
+	DefaultModelGroupRequestPriceFactor    = 1
+	DefaultModelGroupResponsePriceFactor   = 1
+	DefaultModelGroupCompletionPriceFactor = 1
+	DefaultModelGroupCachePriceFactor      = 1
+)
+
+const (
+	DefaultChannelUpstreamTimeout            = 120
+	DefaultChannelUpstreamMaxRetries         = 5
+	DefaultChannelUpstreamDialTimeout        = 60
+	DefaultChannelRetryMaxRetries            = 5
+	DefaultChannelRetryInterval              = 1000
+	DefaultChannelRetryMaxRetryBackoff       = 10000
+	DefaultChannelRateLimitRequestsPerSecond = 100
+	DefaultChannelRateLimitRequestsPerMinute = 3000
+	DefaultChannelRateLimitRequestsPerHour   = 100000
+	DefaultChannelRateLimitRequestsPerDay    = 1000000
+	DefaultChannelRequestPriceFactor         = 1
+	DefaultChannelResponsePriceFactor        = 1
+	DefaultChannelCompletionPriceFactor      = 1
+	DefaultChannelCachePriceFactor           = 1
+)
+
+var DefaultChannelRetryRetryStatuses = []int{500, 502, 503, 504}
+
+const (
+	DefaultChannelGroupMaxConcurrentRequests = 1000
+	DefaultChannelGroupDefaultLevel          = 1
+	DefaultChannelGroupAPIDiscount           = 1
+	DefaultChannelGroupRequestPriceFactor    = 1
+	DefaultChannelGroupResponsePriceFactor   = 1
+	DefaultChannelGroupCompletionPriceFactor = 1
+	DefaultChannelGroupCachePriceFactor      = 1
 )

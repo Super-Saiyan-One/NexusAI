@@ -68,12 +68,6 @@ func (r *paymentRepository) convertToDTO(model *model.Payment) *dto.Payment {
 		utils.SysError("解析回调数据失败:" + err.Error())
 	}
 
-	var deletedAt *utils.MySQLTime
-	if model.DeletedAt.Valid {
-		t := utils.MySQLTime(model.DeletedAt.Time)
-		deletedAt = &t
-	}
-
 	return &dto.Payment{
 		PaymentID:            model.PaymentID,
 		UserID:               model.UserID,
@@ -101,7 +95,7 @@ func (r *paymentRepository) convertToDTO(model *model.Payment) *dto.Payment {
 		RefundInfo:           refundInfo,
 		CreatedAt:            model.CreatedAt,
 		UpdatedAt:            model.UpdatedAt,
-		DeletedAt:            deletedAt,
+		DeletedAt:            utils.FromDeletedAt(model.DeletedAt),
 	}
 }
 
@@ -136,12 +130,6 @@ func (r *paymentRepository) convertToModel(dto *dto.Payment) (*model.Payment, er
 		return nil, fmt.Errorf("转换退款信息失败: %w", err)
 	}
 
-	var deletedAt gorm.DeletedAt
-	if dto.DeletedAt != nil {
-		deletedAt.Time = time.Time(*dto.DeletedAt)
-		deletedAt.Valid = true
-	}
-
 	return &model.Payment{
 		PaymentID:            dto.PaymentID,
 		UserID:               dto.UserID,
@@ -169,7 +157,7 @@ func (r *paymentRepository) convertToModel(dto *dto.Payment) (*model.Payment, er
 		RefundInfo:           refundInfoJSON,
 		CreatedAt:            dto.CreatedAt,
 		UpdatedAt:            dto.UpdatedAt,
-		DeletedAt:            deletedAt,
+		DeletedAt:            utils.ToDeletedAt(dto.DeletedAt),
 	}, nil
 }
 

@@ -58,12 +58,6 @@ func (r *modelRepository) convertToDTO(model *model.Model) *dto.Model {
 		utils.SysError("解析模型配置失败:" + err.Error())
 	}
 
-	var deletedAt *utils.MySQLTime
-	if model.DeletedAt.Valid {
-		t := utils.MySQLTime(model.DeletedAt.Time)
-		deletedAt = &t
-	}
-
 	return &dto.Model{
 		ModelID:          model.ModelID,
 		ModelGroupID:     model.ModelGroupID,
@@ -78,7 +72,7 @@ func (r *modelRepository) convertToDTO(model *model.Model) *dto.Model {
 		ModelOptions:     modelOptions,
 		CreatedAt:        model.CreatedAt,
 		UpdatedAt:        model.UpdatedAt,
-		DeletedAt:        deletedAt,
+		DeletedAt:        utils.FromDeletedAt(model.DeletedAt),
 	}
 }
 
@@ -103,12 +97,6 @@ func (r *modelRepository) convertToModel(dto *dto.Model) (*model.Model, error) {
 		return nil, fmt.Errorf("转换模型配置失败: %w", err)
 	}
 
-	var deletedAt gorm.DeletedAt
-	if dto.DeletedAt != nil {
-		deletedAt.Time = time.Time(*dto.DeletedAt)
-		deletedAt.Valid = true
-	}
-
 	return &model.Model{
 		ModelID:          dto.ModelID,
 		ModelGroupID:     dto.ModelGroupID,
@@ -123,7 +111,7 @@ func (r *modelRepository) convertToModel(dto *dto.Model) (*model.Model, error) {
 		ModelOptions:     modelOptionsJSON,
 		CreatedAt:        dto.CreatedAt,
 		UpdatedAt:        dto.UpdatedAt,
-		DeletedAt:        deletedAt,
+		DeletedAt:        utils.ToDeletedAt(dto.DeletedAt),
 	}, nil
 }
 
@@ -310,8 +298,8 @@ func (r *modelRepository) Benchmark(count int) error {
 				RequestName: fmt.Sprintf("TM%d", i),
 			},
 			ModelOptions: dto.ModelOptions{
-				Discount:         float64(rand.Intn(100)) / 100,
-				DiscountExpireAt: utils.MySQLTime(time.Now().Add(time.Duration(rand.Intn(30)) * time.Hour)),
+				APIDiscount:         float64(rand.Intn(100)) / 100,
+				APIDiscountExpireAt: utils.MySQLTime(time.Now().Add(time.Duration(rand.Intn(30)) * time.Hour)),
 			},
 		}
 
@@ -329,7 +317,7 @@ func (r *modelRepository) Benchmark(count int) error {
 		}
 
 		// 更新
-		createdModel.ModelOptions.Discount = float64(rand.Intn(100)) / 100
+		createdModel.ModelOptions.APIDiscount = float64(rand.Intn(100)) / 100
 		if err := r.Update(createdModel); err != nil {
 			utils.SysError("更新模型失败: " + err.Error())
 			return err

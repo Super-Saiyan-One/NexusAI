@@ -18,7 +18,8 @@ type UserRepository interface {
 	Create(user *dto.User) (*dto.User, error)
 	Update(user *dto.User) (*dto.User, error)
 	Delete(userID string) error
-	Search(userSearch *userDto.SearchRequest) ([]*dto.User, int64, error)
+	Search(userSearch *userDto.UserSearchRequest) ([]*dto.User, int64, error)
+	UpdateLoginTime(userID string) error
 	GetByID(userID string) (*dto.User, error)
 	GetByEmail(email string) (*dto.User, error)
 	GetByPhone(phone string) (*dto.User, error)
@@ -327,7 +328,7 @@ func (r *userRepository) Benchmark(count int) error {
 }
 
 // Search 根据搜索条件筛选用户
-func (r *userRepository) Search(req *userDto.SearchRequest) ([]*dto.User, int64, error) {
+func (r *userRepository) Search(req *userDto.UserSearchRequest) ([]*dto.User, int64, error) {
 	var total int64
 	var users []model.User
 
@@ -411,4 +412,9 @@ func (r *userRepository) Search(req *userDto.SearchRequest) ([]*dto.User, int64,
 	}
 
 	return dtoList, total, nil
+}
+
+// UpdateLoginTime 更新用户最后一次登录时间
+func (r *userRepository) UpdateLoginTime(userID string) error {
+	return r.db.Model(&model.User{}).Where("user_id = ?", userID).Update("last_login_time", utils.MySQLTime(time.Now())).Error
 }

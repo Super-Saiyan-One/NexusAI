@@ -1,6 +1,7 @@
 package middleware
 
 import (
+	"context"
 	"net/http"
 	"nexus-ai/constant"
 	dto "nexus-ai/dto/model"
@@ -49,7 +50,10 @@ func ChannelDistributeMiddleware() func(c *gin.Context) {
 			utils.AbortWhenChannelDistributeFailed(c, http.StatusInternalServerError, err.Error())
 			return
 		}
+		// 将选中的渠道设置到Gin上下文中
 		c.Set(string(constant.ChannelKey), selectedChannel) // 设置选中的渠道
+		ctx := context.WithValue(c.Request.Context(), constant.ChannelKey, selectedChannel)
+		c.Request = c.Request.WithContext(ctx)
 		c.Next()
 	}
 }

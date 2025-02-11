@@ -79,6 +79,18 @@ func AbortWhenUserVerifyFailed(c *gin.Context, statusCode int, message string) {
 	LogError(c.Request.Context(), fmt.Sprintf("requestID: %s, type: %s, message: %s", requestID, constant.ErrorTypeUserVerifyFailed, message))
 }
 
+func AbortWhenRootVerifyFailed(c *gin.Context, statusCode int, message string) {
+	requestID := c.GetString(string(constant.RequestIDKey))
+	c.AbortWithStatusJSON(statusCode, gin.H{
+		"success": false,
+		"error": gin.H{
+			"message": message,
+			"type":    constant.ErrorTypeRootVerifyFailed,
+		},
+	})
+	LogError(c.Request.Context(), fmt.Sprintf("requestID: %s, type: %s, message: %s", requestID, constant.ErrorTypeRootVerifyFailed, message))
+}
+
 func AbortWhenCommonError(c *gin.Context, statusCode int, message string, typeString string) {
 	requestID := c.GetString(string(constant.RequestIDKey))
 	c.AbortWithStatusJSON(statusCode, gin.H{

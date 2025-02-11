@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"math/rand"
 	"nexus-ai/common"
+	userGroupDto "nexus-ai/dto"
 	dto "nexus-ai/dto/model"
 	"nexus-ai/model"
 	"nexus-ai/utils"
@@ -14,14 +15,15 @@ import (
 
 // UserGroupRepository 用户组仓储接口
 type UserGroupRepository interface {
-	Create(userGroup *dto.UserGroup) error
-	Update(userGroup *dto.UserGroup) error
+	Create(userGroup *dto.UserGroup) (*dto.UserGroup, error)
+	Update(userGroup *dto.UserGroup) (*dto.UserGroup, error)
 	Delete(userGroupID string) error
 	GetByID(userGroupID string) (*dto.UserGroup, error)
 	GetByName(name string) (*dto.UserGroup, error)
 	List(page, pageSize int) ([]*dto.UserGroup, int64, error)
 	ListByPriceFactor(factor dto.UserGroupPriceFactor, page, pageSize int) ([]*dto.UserGroup, int64, error)
 	ListByOptions(options dto.UserGroupOptions, page, pageSize int) ([]*dto.UserGroup, int64, error)
+	Search(userGroupSearch *userGroupDto.UserGroupSearchRequest) ([]*dto.UserGroup, int64, error)
 	Benchmark(count int) error
 }
 
@@ -51,12 +53,6 @@ func (r *userGroupRepository) convertToDTO(model *model.UserGroup) *dto.UserGrou
 		utils.SysError("解析配置选项失败:" + err.Error())
 	}
 
-	var deletedAt *utils.MySQLTime
-	if model.DeletedAt.Valid {
-		t := utils.MySQLTime(model.DeletedAt.Time)
-		deletedAt = &t
-	}
-
 	return &dto.UserGroup{
 		UserGroupID:          model.UserGroupID,
 		UserGroupName:        model.UserGroupName,
@@ -65,7 +61,7 @@ func (r *userGroupRepository) convertToDTO(model *model.UserGroup) *dto.UserGrou
 		UserGroupOptions:     options,
 		CreatedAt:            model.CreatedAt,
 		UpdatedAt:            model.UpdatedAt,
-		DeletedAt:            deletedAt,
+		DeletedAt:            utils.FromDeletedAt(model.DeletedAt),
 	}
 }
 
@@ -85,12 +81,6 @@ func (r *userGroupRepository) convertToModel(dto *dto.UserGroup) (*model.UserGro
 		return nil, fmt.Errorf("转换配置选项失败: %w", err)
 	}
 
-	var deletedAt gorm.DeletedAt
-	if dto.DeletedAt != nil {
-		deletedAt.Time = time.Time(*dto.DeletedAt)
-		deletedAt.Valid = true
-	}
-
 	return &model.UserGroup{
 		UserGroupID:          dto.UserGroupID,
 		UserGroupName:        dto.UserGroupName,
@@ -99,26 +89,32 @@ func (r *userGroupRepository) convertToModel(dto *dto.UserGroup) (*model.UserGro
 		UserGroupOptions:     optionsJSON,
 		CreatedAt:            dto.CreatedAt,
 		UpdatedAt:            dto.UpdatedAt,
-		DeletedAt:            deletedAt,
+		DeletedAt:            utils.ToDeletedAt(dto.DeletedAt),
 	}, nil
 }
 
 // Create 创建用户组
-func (r *userGroupRepository) Create(userGroup *dto.UserGroup) error {
+func (r *userGroupRepository) Create(userGroup *dto.UserGroup) (*dto.UserGroup, error) {
 	model, err := r.convertToModel(userGroup)
 	if err != nil {
-		return err
+		return nil, err
 	}
-	return r.db.Create(model).Error
+	if err := r.db.Create(model).Error; err != nil {
+		return nil, err
+	}
+	return r.convertToDTO(model), nil
 }
 
 // Update 更新用户组
-func (r *userGroupRepository) Update(userGroup *dto.UserGroup) error {
+func (r *userGroupRepository) Update(userGroup *dto.UserGroup) (*dto.UserGroup, error) {
 	modelData, err := r.convertToModel(userGroup)
 	if err != nil {
-		return err
+		return nil, err
 	}
-	return r.db.Model(&model.UserGroup{}).Where("user_group_id = ?", userGroup.UserGroupID).Updates(modelData).Error
+	if err := r.db.Model(&model.UserGroup{}).Where("user_group_id = ?", userGroup.UserGroupID).Updates(modelData).Error; err != nil {
+		return nil, err
+	}
+	return r.GetByID(userGroup.UserGroupID)
 }
 
 // Delete 删除用户组
@@ -258,7 +254,8 @@ func (r *userGroupRepository) Benchmark(count int) error {
 		}
 
 		// 创建
-		if err := r.Create(testGroup); err != nil {
+		_, err := r.Create(testGroup)
+		if err != nil {
 			utils.SysError("创建用户组失败: " + err.Error())
 			return err
 		}
@@ -272,7 +269,7 @@ func (r *userGroupRepository) Benchmark(count int) error {
 
 		// 更新时使用获取到的完整记录
 		createdGroup.UserGroupDescription = "已更新的基准测试用户组"
-		if err := r.Update(createdGroup); err != nil {
+		if _, err := r.Update(createdGroup); err != nil {
 			utils.SysError("更新用户组失败: " + err.Error())
 			return err
 		}
@@ -287,4 +284,106 @@ func (r *userGroupRepository) Benchmark(count int) error {
 	duration := time.Since(startTime)
 	utils.SysInfo("基准测试完成，总耗时: " + duration.String() + ", 平均每组操作耗时: " + (duration / time.Duration(count)).String())
 	return nil
+}
+
+// Search 根据搜索条件筛选用户组
+func (r *userGroupRepository) Search(req *userGroupDto.UserGroupSearchRequest) ([]*dto.UserGroup, int64, error) {
+	var total int64
+	var userGroups []model.UserGroup
+
+	query := r.db.Model(&model.UserGroup{})
+
+	// 基本信息筛选
+	if req.UserGroupID != "" {
+		query = query.Where("user_group_id = ?", req.UserGroupID)
+	}
+	if req.UserGroupName != "" {
+		query = query.Where("user_group_name LIKE ?", "%"+req.UserGroupName+"%")
+	}
+	if len(req.Levels) > 0 {
+		query = query.Where("CAST(JSON_EXTRACT(user_group_options, '$.default_level') AS SIGNED) = ANY(?)", req.Levels)
+	}
+
+	// 额外允许的模型和渠道筛选
+	if len(req.ExtraAllowedModels) > 0 {
+		for _, model := range req.ExtraAllowedModels {
+			query = query.Where("JSON_CONTAINS(user_group_options, JSON_ARRAY(?), '$.extra_allowed_models')", model)
+		}
+	}
+	if len(req.ExtraAllowedChannels) > 0 {
+		for _, channel := range req.ExtraAllowedChannels {
+			query = query.Where("JSON_CONTAINS(user_group_options, JSON_ARRAY(?), '$.extra_allowed_channels')", channel)
+		}
+	}
+
+	// API折扣范围查询
+	if req.MinAPIDiscount > 0 {
+		query = query.Where("CAST(JSON_EXTRACT(user_group_options, '$.api_discount') AS DECIMAL(10,2)) >= ?", req.MinAPIDiscount)
+	}
+	if req.MaxAPIDiscount > 0 {
+		query = query.Where("CAST(JSON_EXTRACT(user_group_options, '$.api_discount') AS DECIMAL(10,2)) <= ?", req.MaxAPIDiscount)
+	}
+
+	// 并发请求数范围查询
+	if req.MinConcurrentRequests > 0 {
+		query = query.Where("CAST(JSON_EXTRACT(user_group_options, '$.max_concurrent_requests') AS SIGNED) >= ?", req.MinConcurrentRequests)
+	}
+	if req.MaxConcurrentRequests > 0 {
+		query = query.Where("CAST(JSON_EXTRACT(user_group_options, '$.max_concurrent_requests') AS SIGNED) <= ?", req.MaxConcurrentRequests)
+	}
+
+	// 价格系数范围查询
+	if req.MinRequestPriceFactor > 0 {
+		query = query.Where("CAST(JSON_EXTRACT(user_group_price_factor, '$.request_price_factor') AS DECIMAL(10,2)) >= ?", req.MinRequestPriceFactor)
+	}
+	if req.MaxRequestPriceFactor > 0 {
+		query = query.Where("CAST(JSON_EXTRACT(user_group_price_factor, '$.request_price_factor') AS DECIMAL(10,2)) <= ?", req.MaxRequestPriceFactor)
+	}
+
+	if req.MinResponsePriceFactor > 0 {
+		query = query.Where("CAST(JSON_EXTRACT(user_group_price_factor, '$.response_price_factor') AS DECIMAL(10,2)) >= ?", req.MinResponsePriceFactor)
+	}
+	if req.MaxResponsePriceFactor > 0 {
+		query = query.Where("CAST(JSON_EXTRACT(user_group_price_factor, '$.response_price_factor') AS DECIMAL(10,2)) <= ?", req.MaxResponsePriceFactor)
+	}
+
+	if req.MinCompletionPriceFactor > 0 {
+		query = query.Where("CAST(JSON_EXTRACT(user_group_price_factor, '$.completion_price_factor') AS DECIMAL(10,2)) >= ?", req.MinCompletionPriceFactor)
+	}
+	if req.MaxCompletionPriceFactor > 0 {
+		query = query.Where("CAST(JSON_EXTRACT(user_group_price_factor, '$.completion_price_factor') AS DECIMAL(10,2)) <= ?", req.MaxCompletionPriceFactor)
+	}
+
+	if req.MinCachePriceFactor > 0 {
+		query = query.Where("CAST(JSON_EXTRACT(user_group_price_factor, '$.cache_price_factor') AS DECIMAL(10,2)) >= ?", req.MinCachePriceFactor)
+	}
+	if req.MaxCachePriceFactor > 0 {
+		query = query.Where("CAST(JSON_EXTRACT(user_group_price_factor, '$.cache_price_factor') AS DECIMAL(10,2)) <= ?", req.MaxCachePriceFactor)
+	}
+
+	// 时间范围查询
+	if !req.EarlyCreatedTime.IsZero() {
+		query = query.Where("created_at >= ?", req.EarlyCreatedTime)
+	}
+	if !req.LateCreatedTime.IsZero() {
+		query = query.Where("created_at <= ?", req.LateCreatedTime)
+	}
+
+	// 计算总数
+	if err := query.Count(&total).Error; err != nil {
+		return nil, 0, err
+	}
+
+	// 查询数据
+	if err := query.Find(&userGroups).Error; err != nil {
+		return nil, 0, err
+	}
+
+	// 转换为 DTO
+	dtoList := make([]*dto.UserGroup, len(userGroups))
+	for i, ug := range userGroups {
+		dtoList[i] = r.convertToDTO(&ug)
+	}
+
+	return dtoList, total, nil
 }

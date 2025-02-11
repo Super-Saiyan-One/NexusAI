@@ -1,6 +1,7 @@
 package middleware
 
 import (
+	"context"
 	"net/http"
 	"nexus-ai/constant"
 	dto "nexus-ai/dto/model"
@@ -20,7 +21,10 @@ func QuotaVerifyMiddleware() func(c *gin.Context) {
 			utils.AbortWhenQuotaVerifyFailed(c, http.StatusUnauthorized, err.Error())
 			return
 		}
+		// 将用户信息设置到Gin上下文中
 		c.Set(string(constant.UserKey), user)
+		ctx := context.WithValue(c.Request.Context(), constant.UserKey, user)
+		c.Request = c.Request.WithContext(ctx)
 		c.Next()
 	}
 }

@@ -6,6 +6,7 @@ import (
 	userDto "nexus-ai/dto"
 	dto "nexus-ai/dto/model"
 	"nexus-ai/model"
+	"nexus-ai/redis"
 	"nexus-ai/repository"
 	"nexus-ai/service"
 	"nexus-ai/utils"
@@ -44,10 +45,15 @@ func (uc *userController) UserRegister(c *gin.Context) {
 		utils.CommonError(c, http.StatusBadRequest, "Invalid request data: "+err.Error(), constant.ErrorTypeUserPrefix+"_register")
 		return
 	}
+	if user.Username == "root" {
+		utils.CommonError(c, http.StatusBadRequest, "Username cannot be root", constant.ErrorTypeUserPrefix+"_register")
+		return
+	}
 	user.UserID = utils.GenerateRandomUUID(12)
 	if user.Username == "" {
 		user.Username = utils.GenerateRandomString(8)
 	}
+	user.UserGroupID, _ = redis.Get(c, "ordinary_user_group_id")
 	user.Password = utils.HashPassword(user.Password)
 	user.Status = 1
 	user.OAuthInfo = dto.OAuthInfo{}
@@ -57,9 +63,9 @@ func (uc *userController) UserRegister(c *gin.Context) {
 		GiftQuota:   constant.DefaultUserQuota,
 	}
 	user.UserOptions = dto.UserOptions{
-		MaxConcurrentRequests:    constant.DefaultMaxConcurrentRequests,
+		MaxConcurrentRequests:    constant.DefaultUserMaxConcurrentRequests,
 		DefaultLevel:             constant.DefaultUserLevel,
-		APIDiscount:              constant.DefaultAPIDiscount,
+		APIDiscount:              constant.DefaultUserAPIDiscount,
 		QuotaNotifyEmail:         user.Email,
 		ReceiveQuotaNotifyMail:   1,
 		BillingNotifyEmail:       user.Email,
@@ -91,13 +97,15 @@ func (uc *userController) UserLogin(c *gin.Context) {
 		utils.CommonError(c, http.StatusUnauthorized, "Login failed: "+err.Error(), constant.ErrorTypeUserPrefix+"_login")
 		return
 	}
-
+	c.Header(string(constant.AccessTokenKey), tokens[0])
+	c.Header(string(constant.RefreshTokenKey), tokens[1])
+	c.Header(string(constant.UserIDKey), user.UserID)
 	utils.CommonSuccess(c, http.StatusOK, "Login successful", constant.SuccessTypeUserPrefix+"_login", gin.H{"user": user, "tokens": tokens})
 }
 
 // UserSearch 用户搜索
 func (uc *userController) UserSearch(c *gin.Context) {
-	var userSearch userDto.SearchRequest
+	var userSearch userDto.UserSearchRequest
 	if err := c.ShouldBindJSON(&userSearch); err != nil {
 		utils.CommonError(c, http.StatusBadRequest, "Invalid request data: "+err.Error(), constant.ErrorTypeUserPrefix+"_search")
 		return
@@ -140,7 +148,7 @@ func (uc *userController) UserLogout(c *gin.Context) {
 	}
 
 	userRepo := uc.GetUserRepo()
-	err := uc.service.UserLogout(userRepo, userID)
+	err := uc.service.UserLogout(userRepo, userID, c.GetString(string(constant.AccessTokenKey)), c.GetString(string(constant.RefreshTokenKey)))
 	if err != nil {
 		utils.CommonError(c, http.StatusBadRequest, "Failed to logout user: "+err.Error(), constant.ErrorTypeUserPrefix+"_logout")
 		return

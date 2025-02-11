@@ -17,7 +17,7 @@ type PasswordRequest struct {
 	NewPassword string `json:"new_password" binding:"required"` // 新密码，必填
 }
 
-type SearchRequest struct {
+type UserSearchRequest struct {
 	UserID                string    `json:"user_id"`                 // 用户ID
 	UserGroupID           string    `json:"user_group_id"`           // 用户组ID
 	Username              string    `json:"username"`                // 用户名

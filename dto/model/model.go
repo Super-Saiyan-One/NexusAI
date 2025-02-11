@@ -20,8 +20,8 @@ type ModelAlias struct {
 
 // ModelOptions 模型配置选项
 type ModelOptions struct {
-	Discount         float64         `json:"discount"`           // 折扣
-	DiscountExpireAt utils.MySQLTime `json:"discount_expire_at"` // 折扣过期时间
+	APIDiscount         float64         `json:"api_discount"`           // API折扣
+	APIDiscountExpireAt utils.MySQLTime `json:"api_discount_expire_at"` // API折扣过期时间
 }
 
 // Model DTO结构

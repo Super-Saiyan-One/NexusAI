@@ -81,12 +81,6 @@ func (r *channelRepository) convertToDTO(model *model.Channel) *dto.Channel {
 		utils.SysError("解析测试模型配置失败:" + err.Error())
 	}
 
-	var deletedAt *utils.MySQLTime
-	if model.DeletedAt.Valid {
-		t := utils.MySQLTime(model.DeletedAt.Time)
-		deletedAt = &t
-	}
-
 	return &dto.Channel{
 		ChannelID:          model.ChannelID,
 		ChannelGroupID:     model.ChannelGroupID,
@@ -103,7 +97,7 @@ func (r *channelRepository) convertToDTO(model *model.Channel) *dto.Channel {
 		TestModels:         testModels,
 		CreatedAt:          model.CreatedAt,
 		UpdatedAt:          model.UpdatedAt,
-		DeletedAt:          deletedAt,
+		DeletedAt:          utils.FromDeletedAt(model.DeletedAt),
 	}
 }
 
@@ -153,12 +147,6 @@ func (r *channelRepository) convertToModel(dto *dto.Channel) (*model.Channel, er
 		return nil, fmt.Errorf("转换测试模型配置失败: %w", err)
 	}
 
-	var deletedAt gorm.DeletedAt
-	if dto.DeletedAt != nil {
-		deletedAt.Time = time.Time(*dto.DeletedAt)
-		deletedAt.Valid = true
-	}
-
 	return &model.Channel{
 		ChannelID:          dto.ChannelID,
 		ChannelGroupID:     dto.ChannelGroupID,
@@ -175,7 +163,7 @@ func (r *channelRepository) convertToModel(dto *dto.Channel) (*model.Channel, er
 		TestModels:         testModelsJSON,
 		CreatedAt:          dto.CreatedAt,
 		UpdatedAt:          dto.UpdatedAt,
-		DeletedAt:          deletedAt,
+		DeletedAt:          utils.ToDeletedAt(dto.DeletedAt),
 	}, nil
 }
 

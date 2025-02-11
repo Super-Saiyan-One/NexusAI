@@ -59,12 +59,6 @@ func (r *messageSaveRepository) convertToDTO(model *model.MessageSave) *dto.Mess
 		utils.SysError("解析消息额外信息失败:" + err.Error())
 	}
 
-	var deletedAt *utils.MySQLTime
-	if model.DeletedAt.Valid {
-		t := utils.MySQLTime(model.DeletedAt.Time)
-		deletedAt = &t
-	}
-
 	return &dto.MessageSave{
 		MessageID:        model.MessageID,
 		UserID:           model.UserID,
@@ -92,7 +86,7 @@ func (r *messageSaveRepository) convertToDTO(model *model.MessageSave) *dto.Mess
 		MessageExtra:     messageExtra,
 		CreatedAt:        model.CreatedAt,
 		UpdatedAt:        model.UpdatedAt,
-		DeletedAt:        deletedAt,
+		DeletedAt:        utils.FromDeletedAt(model.DeletedAt),
 	}
 }
 
@@ -115,12 +109,6 @@ func (r *messageSaveRepository) convertToModel(dto *dto.MessageSave) (*model.Mes
 	messageExtraJSON, err := common.FromStruct(dto.MessageExtra)
 	if err != nil {
 		return nil, fmt.Errorf("转换消息额外信息失败: %w", err)
-	}
-
-	var deletedAt gorm.DeletedAt
-	if dto.DeletedAt != nil {
-		deletedAt.Time = time.Time(*dto.DeletedAt)
-		deletedAt.Valid = true
 	}
 
 	return &model.MessageSave{
@@ -150,7 +138,7 @@ func (r *messageSaveRepository) convertToModel(dto *dto.MessageSave) (*model.Mes
 		MessageExtra:     messageExtraJSON,
 		CreatedAt:        dto.CreatedAt,
 		UpdatedAt:        dto.UpdatedAt,
-		DeletedAt:        deletedAt,
+		DeletedAt:        utils.ToDeletedAt(dto.DeletedAt),
 	}, nil
 }
 

@@ -11,9 +11,9 @@ import (
 type User struct {
 	UserID        string          `gorm:"column:user_id;type:char(36);primaryKey;default:(UUID())" json:"user_id"` // 用户唯一标识
 	UserGroupID   string          `gorm:"column:user_group_id;type:char(36);not null" json:"user_group_id"`        // 用户组ID
-	Username      string          `gorm:"column:username;size:50" json:"username"`                                 // 用户名
-	Password      string          `gorm:"column:password;size:255" json:"password"`                                // 密码哈希
-	Email         string          `gorm:"column:email;size:100;uniqueIndex" json:"email"`                          // 邮箱地址
+	Username      string          `gorm:"column:username;size:50;uniqueIndex;not null" json:"username"`            // 用户名
+	Password      string          `gorm:"column:password;size:255;not null" json:"password"`                       // 密码哈希
+	Email         string          `gorm:"column:email;size:100;uniqueIndex;not null" json:"email"`                 // 邮箱地址
 	Phone         string          `gorm:"column:phone;size:20;uniqueIndex" json:"phone"`                           // 手机号码
 	OAuthInfo     common.JSON     `gorm:"column:oauth_info;type:json" json:"oauth_info"`                           // 第三方登录相关的认证信息(如GitHub、微信、Google等)
 	UserQuota     common.JSON     `gorm:"column:user_quota;type:json" json:"user_quota"`                           // 各种资源使用配额信息

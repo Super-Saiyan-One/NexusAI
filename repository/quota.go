@@ -46,12 +46,6 @@ func (r *quotaRepository) convertToDTO(model *model.Quota) *dto.Quota {
 		utils.SysError("解析配额选项失败:" + err.Error())
 	}
 
-	var deletedAt *utils.MySQLTime
-	if model.DeletedAt.Valid {
-		t := utils.MySQLTime(model.DeletedAt.Time)
-		deletedAt = &t
-	}
-
 	return &dto.Quota{
 		QuotaID:         model.QuotaID,
 		UserID:          model.UserID,
@@ -67,7 +61,7 @@ func (r *quotaRepository) convertToDTO(model *model.Quota) *dto.Quota {
 		QuotaOptions:    quotaOptions,
 		CreatedAt:       model.CreatedAt,
 		UpdatedAt:       model.UpdatedAt,
-		DeletedAt:       deletedAt,
+		DeletedAt:       utils.FromDeletedAt(model.DeletedAt),
 	}
 }
 
@@ -80,12 +74,6 @@ func (r *quotaRepository) convertToModel(dto *dto.Quota) (*model.Quota, error) {
 	quotaOptionsJSON, err := common.FromStruct(dto.QuotaOptions)
 	if err != nil {
 		return nil, fmt.Errorf("转换配额选项失败: %w", err)
-	}
-
-	var deletedAt gorm.DeletedAt
-	if dto.DeletedAt != nil {
-		deletedAt.Time = time.Time(*dto.DeletedAt)
-		deletedAt.Valid = true
 	}
 
 	return &model.Quota{
@@ -103,7 +91,7 @@ func (r *quotaRepository) convertToModel(dto *dto.Quota) (*model.Quota, error) {
 		QuotaOptions:    quotaOptionsJSON,
 		CreatedAt:       dto.CreatedAt,
 		UpdatedAt:       dto.UpdatedAt,
-		DeletedAt:       deletedAt,
+		DeletedAt:       utils.ToDeletedAt(dto.DeletedAt),
 	}, nil
 }
 

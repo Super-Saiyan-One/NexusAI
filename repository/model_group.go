@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"math/rand"
 	"nexus-ai/common"
+	modelGroupDto "nexus-ai/dto"
 	dto "nexus-ai/dto/model"
 	"nexus-ai/model"
 	"nexus-ai/utils"
@@ -14,12 +15,13 @@ import (
 
 // ModelGroupRepository 模型组仓储接口
 type ModelGroupRepository interface {
-	Create(modelGroup *dto.ModelGroup) error
-	Update(modelGroup *dto.ModelGroup) error
+	Create(modelGroup *dto.ModelGroup) (*dto.ModelGroup, error)
+	Update(modelGroup *dto.ModelGroup) (*dto.ModelGroup, error)
 	Delete(modelGroupID string) error
 	GetByID(modelGroupID string) (*dto.ModelGroup, error)
 	GetByName(name string) (*dto.ModelGroup, error)
 	List(page, pageSize int) ([]*dto.ModelGroup, int64, error)
+	Search(modelGroupSearch *modelGroupDto.ModelGroupSearchRequest) ([]*dto.ModelGroup, int64, error)
 	Benchmark(count int) error
 }
 
@@ -49,12 +51,6 @@ func (r *modelGroupRepository) convertToDTO(model *model.ModelGroup) *dto.ModelG
 		utils.SysError("解析配置选项失败:" + err.Error())
 	}
 
-	var deletedAt *utils.MySQLTime
-	if model.DeletedAt.Valid {
-		t := utils.MySQLTime(model.DeletedAt.Time)
-		deletedAt = &t
-	}
-
 	return &dto.ModelGroup{
 		ModelGroupID:          model.ModelGroupID,
 		ModelGroupName:        model.ModelGroupName,
@@ -63,7 +59,7 @@ func (r *modelGroupRepository) convertToDTO(model *model.ModelGroup) *dto.ModelG
 		ModelGroupOptions:     options,
 		CreatedAt:             model.CreatedAt,
 		UpdatedAt:             model.UpdatedAt,
-		DeletedAt:             deletedAt,
+		DeletedAt:             utils.FromDeletedAt(model.DeletedAt),
 	}
 }
 
@@ -83,12 +79,6 @@ func (r *modelGroupRepository) convertToModel(dto *dto.ModelGroup) (*model.Model
 		return nil, fmt.Errorf("转换配置选项失败: %w", err)
 	}
 
-	var deletedAt gorm.DeletedAt
-	if dto.DeletedAt != nil {
-		deletedAt.Time = time.Time(*dto.DeletedAt)
-		deletedAt.Valid = true
-	}
-
 	return &model.ModelGroup{
 		ModelGroupID:          dto.ModelGroupID,
 		ModelGroupName:        dto.ModelGroupName,
@@ -97,26 +87,32 @@ func (r *modelGroupRepository) convertToModel(dto *dto.ModelGroup) (*model.Model
 		ModelGroupOptions:     optionsJSON,
 		CreatedAt:             dto.CreatedAt,
 		UpdatedAt:             dto.UpdatedAt,
-		DeletedAt:             deletedAt,
+		DeletedAt:             utils.ToDeletedAt(dto.DeletedAt),
 	}, nil
 }
 
 // Create 创建模型组
-func (r *modelGroupRepository) Create(modelGroup *dto.ModelGroup) error {
+func (r *modelGroupRepository) Create(modelGroup *dto.ModelGroup) (*dto.ModelGroup, error) {
 	model, err := r.convertToModel(modelGroup)
 	if err != nil {
-		return err
+		return nil, err
 	}
-	return r.db.Create(model).Error
+	if err := r.db.Create(model).Error; err != nil {
+		return nil, err
+	}
+	return r.convertToDTO(model), nil
 }
 
 // Update 更新模型组
-func (r *modelGroupRepository) Update(modelGroup *dto.ModelGroup) error {
+func (r *modelGroupRepository) Update(modelGroup *dto.ModelGroup) (*dto.ModelGroup, error) {
 	modelData, err := r.convertToModel(modelGroup)
 	if err != nil {
-		return err
+		return nil, err
 	}
-	return r.db.Model(&model.ModelGroup{}).Where("model_group_id = ?", modelGroup.ModelGroupID).Updates(modelData).Error
+	if err := r.db.Model(&model.ModelGroup{}).Where("model_group_id = ?", modelGroup.ModelGroupID).Updates(modelData).Error; err != nil {
+		return nil, err
+	}
+	return r.GetByID(modelGroup.ModelGroupID)
 }
 
 // Delete 删除模型组
@@ -165,6 +161,106 @@ func (r *modelGroupRepository) List(page, pageSize int) ([]*dto.ModelGroup, int6
 	return dtoList, total, nil
 }
 
+// Search 根据搜索条件筛选模型组
+func (r *modelGroupRepository) Search(req *modelGroupDto.ModelGroupSearchRequest) ([]*dto.ModelGroup, int64, error) {
+	var total int64
+	var modelGroups []model.ModelGroup
+
+	query := r.db.Model(&model.ModelGroup{})
+
+	// 基本信息筛选
+	if req.ModelGroupID != "" {
+		query = query.Where("model_group_id = ?", req.ModelGroupID)
+	}
+	if req.ModelGroupName != "" {
+		query = query.Where("model_group_name LIKE ?", "%"+req.ModelGroupName+"%")
+	}
+	if len(req.Levels) > 0 {
+		query = query.Where("CAST(JSON_EXTRACT(model_group_options, '$.default_level') AS SIGNED) = ANY(?)", req.Levels)
+	}
+
+	// API折扣范围查询，考虑折扣过期时间
+	if req.MinAPIDiscount > 0 {
+		query = query.Where(`
+			CASE 
+				WHEN CAST(JSON_EXTRACT(model_group_options, '$.api_discount_expire_at') AS DATETIME) < NOW() 
+				THEN 1 
+				ELSE CAST(JSON_EXTRACT(model_group_options, '$.api_discount') AS DECIMAL(10,2)) 
+			END >= ?`, req.MinAPIDiscount)
+	}
+	if req.MaxAPIDiscount > 0 {
+		query = query.Where(`
+			CASE 
+				WHEN CAST(JSON_EXTRACT(model_group_options, '$.api_discount_expire_at') AS DATETIME) < NOW() 
+				THEN 1 
+				ELSE CAST(JSON_EXTRACT(model_group_options, '$.api_discount') AS DECIMAL(10,2)) 
+			END <= ?`, req.MaxAPIDiscount)
+	}
+
+	// 并发请求数范围查询
+	if req.MinConcurrentRequests > 0 {
+		query = query.Where("CAST(JSON_EXTRACT(model_group_options, '$.max_concurrent_requests') AS SIGNED) >= ?", req.MinConcurrentRequests)
+	}
+	if req.MaxConcurrentRequests > 0 {
+		query = query.Where("CAST(JSON_EXTRACT(model_group_options, '$.max_concurrent_requests') AS SIGNED) <= ?", req.MaxConcurrentRequests)
+	}
+
+	// 价格系数范围查询
+	if req.MinRequestPriceFactor > 0 {
+		query = query.Where("CAST(JSON_EXTRACT(model_group_price_factor, '$.request_price_factor') AS DECIMAL(10,2)) >= ?", req.MinRequestPriceFactor)
+	}
+	if req.MaxRequestPriceFactor > 0 {
+		query = query.Where("CAST(JSON_EXTRACT(model_group_price_factor, '$.request_price_factor') AS DECIMAL(10,2)) <= ?", req.MaxRequestPriceFactor)
+	}
+
+	if req.MinResponsePriceFactor > 0 {
+		query = query.Where("CAST(JSON_EXTRACT(model_group_price_factor, '$.response_price_factor') AS DECIMAL(10,2)) >= ?", req.MinResponsePriceFactor)
+	}
+	if req.MaxResponsePriceFactor > 0 {
+		query = query.Where("CAST(JSON_EXTRACT(model_group_price_factor, '$.response_price_factor') AS DECIMAL(10,2)) <= ?", req.MaxResponsePriceFactor)
+	}
+
+	if req.MinCompletionPriceFactor > 0 {
+		query = query.Where("CAST(JSON_EXTRACT(model_group_price_factor, '$.completion_price_factor') AS DECIMAL(10,2)) >= ?", req.MinCompletionPriceFactor)
+	}
+	if req.MaxCompletionPriceFactor > 0 {
+		query = query.Where("CAST(JSON_EXTRACT(model_group_price_factor, '$.completion_price_factor') AS DECIMAL(10,2)) <= ?", req.MaxCompletionPriceFactor)
+	}
+
+	if req.MinCachePriceFactor > 0 {
+		query = query.Where("CAST(JSON_EXTRACT(model_group_price_factor, '$.cache_price_factor') AS DECIMAL(10,2)) >= ?", req.MinCachePriceFactor)
+	}
+	if req.MaxCachePriceFactor > 0 {
+		query = query.Where("CAST(JSON_EXTRACT(model_group_price_factor, '$.cache_price_factor') AS DECIMAL(10,2)) <= ?", req.MaxCachePriceFactor)
+	}
+
+	// 时间范围查询
+	if !req.EarlyCreatedTime.IsZero() {
+		query = query.Where("created_at >= ?", req.EarlyCreatedTime)
+	}
+	if !req.LateCreatedTime.IsZero() {
+		query = query.Where("created_at <= ?", req.LateCreatedTime)
+	}
+
+	// 计算总数
+	if err := query.Count(&total).Error; err != nil {
+		return nil, 0, err
+	}
+
+	// 查询数据
+	if err := query.Find(&modelGroups).Error; err != nil {
+		return nil, 0, err
+	}
+
+	// 转换为 DTO
+	dtoList := make([]*dto.ModelGroup, len(modelGroups))
+	for i, mg := range modelGroups {
+		dtoList[i] = r.convertToDTO(&mg)
+	}
+
+	return dtoList, total, nil
+}
+
 // Benchmark 执行基准测试
 func (r *modelGroupRepository) Benchmark(count int) error {
 	utils.SysInfo("开始执行模型组基准测试...")
@@ -184,13 +280,13 @@ func (r *modelGroupRepository) Benchmark(count int) error {
 			ModelGroupOptions: dto.ModelGroupOptions{
 				MaxConcurrentRequests: rand.Intn(10) + 1,
 				DefaultLevel:          rand.Intn(3) + 1,
-				Discount:              float64(rand.Intn(50)+50) / 100,
-				DiscountExpireAt:      utils.MySQLTime(time.Now().Add(time.Duration(rand.Intn(30)) * time.Hour)),
+				APIDiscount:           float64(rand.Intn(50)+50) / 100,
+				APIDiscountExpireAt:   utils.MySQLTime(time.Now().Add(time.Duration(rand.Intn(30)) * time.Hour)),
 			},
 		}
 
 		// 创建
-		if err := r.Create(testModelGroup); err != nil {
+		if _, err := r.Create(testModelGroup); err != nil {
 			utils.SysError("创建模型组失败: " + err.Error())
 			return err
 		}
@@ -204,7 +300,7 @@ func (r *modelGroupRepository) Benchmark(count int) error {
 
 		// 更新
 		createdModelGroup.ModelGroupOptions.DefaultLevel = rand.Intn(5) + 1
-		if err := r.Update(createdModelGroup); err != nil {
+		if _, err := r.Update(createdModelGroup); err != nil {
 			utils.SysError("更新模型组失败: " + err.Error())
 			return err
 		}

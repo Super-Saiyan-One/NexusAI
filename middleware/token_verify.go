@@ -1,6 +1,7 @@
 package middleware
 
 import (
+	"context"
 	"net/http"
 	"nexus-ai/constant"
 	"nexus-ai/repository"
@@ -38,8 +39,10 @@ func TokenVerifyMiddleware() func(c *gin.Context) {
 			utils.AbortWhenIPVerifyFailed(c, http.StatusUnauthorized, "IP not allowed")
 			return
 		}
-
-		c.Set(string(constant.TokenKey), token) // 将令牌信息存储在Gin上下文中
+		// 将令牌信息设置到Gin上下文中
+		c.Set(string(constant.TokenKey), token)
+		ctx := context.WithValue(c.Request.Context(), constant.TokenKey, token)
+		c.Request = c.Request.WithContext(ctx)
 		c.Next()
 	}
 }

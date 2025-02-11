@@ -55,12 +55,6 @@ func (r *channelGroupRepository) convertToDTO(model *model.ChannelGroup) *dto.Ch
 		utils.SysError("解析渠道组渠道失败:" + err.Error())
 	}
 
-	var deletedAt *utils.MySQLTime
-	if model.DeletedAt.Valid {
-		t := utils.MySQLTime(model.DeletedAt.Time)
-		deletedAt = &t
-	}
-
 	return &dto.ChannelGroup{
 		ChannelGroupID:          model.ChannelGroupID,
 		ChannelGroupName:        model.ChannelGroupName,
@@ -70,7 +64,7 @@ func (r *channelGroupRepository) convertToDTO(model *model.ChannelGroup) *dto.Ch
 		ChannelGroupChannels:    channels,
 		CreatedAt:               model.CreatedAt,
 		UpdatedAt:               model.UpdatedAt,
-		DeletedAt:               deletedAt,
+		DeletedAt:               utils.FromDeletedAt(model.DeletedAt),
 	}
 }
 
@@ -95,12 +89,6 @@ func (r *channelGroupRepository) convertToModel(dto *dto.ChannelGroup) (*model.C
 		return nil, fmt.Errorf("转换渠道组渠道失败: %w", err)
 	}
 
-	var deletedAt gorm.DeletedAt
-	if dto.DeletedAt != nil {
-		deletedAt.Time = time.Time(*dto.DeletedAt)
-		deletedAt.Valid = true
-	}
-
 	return &model.ChannelGroup{
 		ChannelGroupID:          dto.ChannelGroupID,
 		ChannelGroupName:        dto.ChannelGroupName,
@@ -110,7 +98,7 @@ func (r *channelGroupRepository) convertToModel(dto *dto.ChannelGroup) (*model.C
 		ChannelGroupChannels:    channelsJSON,
 		CreatedAt:               dto.CreatedAt,
 		UpdatedAt:               dto.UpdatedAt,
-		DeletedAt:               deletedAt,
+		DeletedAt:               utils.ToDeletedAt(dto.DeletedAt),
 	}, nil
 }
 
@@ -210,8 +198,8 @@ func (r *channelGroupRepository) Benchmark(count int) error {
 			ChannelGroupOptions: dto.ChannelGroupOptions{
 				MaxConcurrentRequests: rand.Intn(10) + 1,
 				DefaultLevel:          rand.Intn(3) + 1,
-				Discount:              float64(rand.Intn(50)+50) / 100,
-				DiscountExpireAt:      utils.MySQLTime(time.Now().Add(time.Duration(rand.Intn(30)) * time.Hour)),
+				APIDiscount:           float64(rand.Intn(50)+50) / 100,
+				APIDiscountExpireAt:   utils.MySQLTime(time.Now().Add(time.Duration(rand.Intn(30)) * time.Hour)),
 			},
 			ChannelGroupChannels: dto.ChannelGroupChannels{
 				Channels:  []string{},

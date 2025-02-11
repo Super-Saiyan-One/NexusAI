@@ -1,6 +1,7 @@
 package middleware
 
 import (
+	"context"
 	"net/http"
 	"nexus-ai/constant"
 	dto "nexus-ai/dto/model"
@@ -29,7 +30,10 @@ func ModelVerifyMiddleware() func(c *gin.Context) {
 					utils.AbortWhenModelVerifyFailed(c, http.StatusBadRequest, err.Error())
 					return
 				}
+				// 将验证通过的模型设置到Gin上下文中
 				c.Set(string(constant.ModelKey), model)
+				ctx := context.WithValue(c.Request.Context(), constant.ModelKey, model)
+				c.Request = c.Request.WithContext(ctx)
 				c.Next()
 			} else {
 				utils.AbortWhenModelVerifyFailed(c, http.StatusBadRequest, "Using token not allowed to use requested model")
