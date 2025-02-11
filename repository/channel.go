@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"math/rand"
 	"nexus-ai/common"
+	channelDto "nexus-ai/dto"
 	dto "nexus-ai/dto/model"
 	"nexus-ai/model"
 	"nexus-ai/utils"
@@ -14,14 +15,15 @@ import (
 
 // ChannelRepository 渠道仓储接口
 type ChannelRepository interface {
-	Create(channel *dto.Channel) error
-	Update(channel *dto.Channel) error
+	Create(channel *dto.Channel) (*dto.Channel, error)
+	Update(channel *dto.Channel) (*dto.Channel, error)
 	Delete(channelID string) error
 	GetByID(channelID string) (*dto.Channel, error)
 	GetByName(name string) (*dto.Channel, error)
 	List(page, pageSize int) ([]*dto.Channel, int64, error)
 	ListByStatus(status int8, page, pageSize int) ([]*dto.Channel, int64, error)
 	ListByGroup(groupID string, page, pageSize int) ([]*dto.Channel, int64, error)
+	Search(req *channelDto.ChannelSearchRequest) ([]*dto.Channel, int64, error)
 	Benchmark(count int) error
 }
 
@@ -168,21 +170,27 @@ func (r *channelRepository) convertToModel(dto *dto.Channel) (*model.Channel, er
 }
 
 // Create 创建渠道
-func (r *channelRepository) Create(channel *dto.Channel) error {
+func (r *channelRepository) Create(channel *dto.Channel) (*dto.Channel, error) {
 	model, err := r.convertToModel(channel)
 	if err != nil {
-		return err
+		return nil, err
 	}
-	return r.db.Create(model).Error
+	if err := r.db.Create(model).Error; err != nil {
+		return nil, err
+	}
+	return r.convertToDTO(model), nil
 }
 
 // Update 更新渠道
-func (r *channelRepository) Update(channel *dto.Channel) error {
+func (r *channelRepository) Update(channel *dto.Channel) (*dto.Channel, error) {
 	modelData, err := r.convertToModel(channel)
 	if err != nil {
-		return err
+		return nil, err
 	}
-	return r.db.Model(&model.Channel{}).Where("channel_id = ?", channel.ChannelID).Updates(modelData).Error
+	if err := r.db.Model(&model.Channel{}).Where("channel_id = ?", channel.ChannelID).Updates(modelData).Error; err != nil {
+		return nil, err
+	}
+	return r.GetByID(channel.ChannelID)
 }
 
 // Delete 删除渠道
@@ -279,6 +287,175 @@ func (r *channelRepository) ListByGroup(groupID string, page, pageSize int) ([]*
 	return dtoList, total, nil
 }
 
+// Search 根据搜索条件筛选渠道
+func (r *channelRepository) Search(req *channelDto.ChannelSearchRequest) ([]*dto.Channel, int64, error) {
+	var total int64
+	var channels []model.Channel
+
+	query := r.db.Model(&model.Channel{})
+
+	// 基本信息筛选
+	if req.ChannelID != "" {
+		query = query.Where("channel_id = ?", req.ChannelID)
+	}
+	if req.ChannelGroupID != "" {
+		query = query.Where("channel_group_id = ?", req.ChannelGroupID)
+	}
+	if req.ChannelName != "" {
+		query = query.Where("channel_name LIKE ?", "%"+req.ChannelName+"%")
+	}
+	if req.Status != 0 {
+		query = query.Where("status = ?", req.Status)
+	}
+
+	// 允许的模型列表筛选
+	if len(req.AllowedModels) > 0 {
+		for _, modelID := range req.AllowedModels {
+			query = query.Where("JSON_CONTAINS(CAST(channel_models->>'$.allowed_models' AS JSON), JSON_ARRAY(?))", modelID)
+		}
+	}
+
+	// 上游服务配置筛选
+	if req.UpstreamEndpoint != "" {
+		query = query.Where("JSON_EXTRACT(upstream_options, '$.endpoint') = ?", req.UpstreamEndpoint)
+	}
+	if req.UpstreamProxyURL != "" {
+		query = query.Where("JSON_EXTRACT(upstream_options, '$.proxy_url') = ?", req.UpstreamProxyURL)
+	}
+	if req.MinUpstreamTimeout > 0 {
+		query = query.Where("CAST(JSON_EXTRACT(upstream_options, '$.timeout') AS SIGNED) >= ?", req.MinUpstreamTimeout)
+	}
+	if req.MaxUpstreamTimeout > 0 {
+		query = query.Where("CAST(JSON_EXTRACT(upstream_options, '$.timeout') AS SIGNED) <= ?", req.MaxUpstreamTimeout)
+	}
+	if req.MinUpstreamMaxRetries > 0 {
+		query = query.Where("CAST(JSON_EXTRACT(upstream_options, '$.max_retries') AS SIGNED) >= ?", req.MinUpstreamMaxRetries)
+	}
+	if req.MaxUpstreamMaxRetries > 0 {
+		query = query.Where("CAST(JSON_EXTRACT(upstream_options, '$.max_retries') AS SIGNED) <= ?", req.MaxUpstreamMaxRetries)
+	}
+	if req.MinUpstreamDialTimeout > 0 {
+		query = query.Where("CAST(JSON_EXTRACT(upstream_options, '$.dial_timeout') AS SIGNED) >= ?", req.MinUpstreamDialTimeout)
+	}
+	if req.MaxUpstreamDialTimeout > 0 {
+		query = query.Where("CAST(JSON_EXTRACT(upstream_options, '$.dial_timeout') AS SIGNED) <= ?", req.MaxUpstreamDialTimeout)
+	}
+
+	// 认证配置筛选
+	if req.AuthAPIKey != "" {
+		query = query.Where("JSON_EXTRACT(auth_options, '$.api_key') = ?", req.AuthAPIKey)
+	}
+	if req.AuthAPISecret != "" {
+		query = query.Where("JSON_EXTRACT(auth_options, '$.api_secret') = ?", req.AuthAPISecret)
+	}
+	if req.AuthBearerToken != "" {
+		query = query.Where("JSON_EXTRACT(auth_options, '$.bearer_token') = ?", req.AuthBearerToken)
+	}
+
+	// 重试配置筛选
+	if req.MinRetryMaxRetries > 0 {
+		query = query.Where("CAST(JSON_EXTRACT(retry_options, '$.max_retries') AS SIGNED) >= ?", req.MinRetryMaxRetries)
+	}
+	if req.MaxRetryMaxRetries > 0 {
+		query = query.Where("CAST(JSON_EXTRACT(retry_options, '$.max_retries') AS SIGNED) <= ?", req.MaxRetryMaxRetries)
+	}
+	if req.MinRetryInterval > 0 {
+		query = query.Where("CAST(JSON_EXTRACT(retry_options, '$.retry_interval') AS SIGNED) >= ?", req.MinRetryInterval)
+	}
+	if req.MaxRetryInterval > 0 {
+		query = query.Where("CAST(JSON_EXTRACT(retry_options, '$.retry_interval') AS SIGNED) <= ?", req.MaxRetryInterval)
+	}
+	if req.MinRetryMaxRetryBackoff > 0 {
+		query = query.Where("CAST(JSON_EXTRACT(retry_options, '$.max_retry_backoff') AS SIGNED) >= ?", req.MinRetryMaxRetryBackoff)
+	}
+	if req.MaxRetryMaxRetryBackoff > 0 {
+		query = query.Where("CAST(JSON_EXTRACT(retry_options, '$.max_retry_backoff') AS SIGNED) <= ?", req.MaxRetryMaxRetryBackoff)
+	}
+	if len(req.RetryStatuses) > 0 {
+		for _, status := range req.RetryStatuses {
+			query = query.Where("JSON_CONTAINS(CAST(retry_options->>'$.retry_statuses' AS JSON), CAST(? AS JSON))", status)
+		}
+	}
+
+	// 速率限制筛选
+	if req.MinRateLimitRequestsPerSecond > 0 {
+		query = query.Where("CAST(JSON_EXTRACT(rate_limit, '$.requests_per_second') AS SIGNED) >= ?", req.MinRateLimitRequestsPerSecond)
+	}
+	if req.MaxRateLimitRequestsPerSecond > 0 {
+		query = query.Where("CAST(JSON_EXTRACT(rate_limit, '$.requests_per_second') AS SIGNED) <= ?", req.MaxRateLimitRequestsPerSecond)
+	}
+	if req.MinRateLimitRequestsPerMinute > 0 {
+		query = query.Where("CAST(JSON_EXTRACT(rate_limit, '$.requests_per_minute') AS SIGNED) >= ?", req.MinRateLimitRequestsPerMinute)
+	}
+	if req.MaxRateLimitRequestsPerMinute > 0 {
+		query = query.Where("CAST(JSON_EXTRACT(rate_limit, '$.requests_per_minute') AS SIGNED) <= ?", req.MaxRateLimitRequestsPerMinute)
+	}
+	if req.MinRateLimitRequestsPerHour > 0 {
+		query = query.Where("CAST(JSON_EXTRACT(rate_limit, '$.requests_per_hour') AS SIGNED) >= ?", req.MinRateLimitRequestsPerHour)
+	}
+	if req.MaxRateLimitRequestsPerHour > 0 {
+		query = query.Where("CAST(JSON_EXTRACT(rate_limit, '$.requests_per_hour') AS SIGNED) <= ?", req.MaxRateLimitRequestsPerHour)
+	}
+	if req.MinRateLimitRequestsPerDay > 0 {
+		query = query.Where("CAST(JSON_EXTRACT(rate_limit, '$.requests_per_day') AS SIGNED) >= ?", req.MinRateLimitRequestsPerDay)
+	}
+	if req.MaxRateLimitRequestsPerDay > 0 {
+		query = query.Where("CAST(JSON_EXTRACT(rate_limit, '$.requests_per_day') AS SIGNED) <= ?", req.MaxRateLimitRequestsPerDay)
+	}
+
+	// 价格系数筛选
+	if req.MinRequestPriceFactor > 0 {
+		query = query.Where("CAST(JSON_EXTRACT(channel_price_factor, '$.request_price_factor') AS DECIMAL(10,2)) >= ?", req.MinRequestPriceFactor)
+	}
+	if req.MaxRequestPriceFactor > 0 {
+		query = query.Where("CAST(JSON_EXTRACT(channel_price_factor, '$.request_price_factor') AS DECIMAL(10,2)) <= ?", req.MaxRequestPriceFactor)
+	}
+	if req.MinResponsePriceFactor > 0 {
+		query = query.Where("CAST(JSON_EXTRACT(channel_price_factor, '$.response_price_factor') AS DECIMAL(10,2)) >= ?", req.MinResponsePriceFactor)
+	}
+	if req.MaxResponsePriceFactor > 0 {
+		query = query.Where("CAST(JSON_EXTRACT(channel_price_factor, '$.response_price_factor') AS DECIMAL(10,2)) <= ?", req.MaxResponsePriceFactor)
+	}
+	if req.MinCompletionPriceFactor > 0 {
+		query = query.Where("CAST(JSON_EXTRACT(channel_price_factor, '$.completion_price_factor') AS DECIMAL(10,2)) >= ?", req.MinCompletionPriceFactor)
+	}
+	if req.MaxCompletionPriceFactor > 0 {
+		query = query.Where("CAST(JSON_EXTRACT(channel_price_factor, '$.completion_price_factor') AS DECIMAL(10,2)) <= ?", req.MaxCompletionPriceFactor)
+	}
+	if req.MinCachePriceFactor > 0 {
+		query = query.Where("CAST(JSON_EXTRACT(channel_price_factor, '$.cache_price_factor') AS DECIMAL(10,2)) >= ?", req.MinCachePriceFactor)
+	}
+	if req.MaxCachePriceFactor > 0 {
+		query = query.Where("CAST(JSON_EXTRACT(channel_price_factor, '$.cache_price_factor') AS DECIMAL(10,2)) <= ?", req.MaxCachePriceFactor)
+	}
+
+	// 时间范围查询
+	if !req.EarlyCreatedTime.IsZero() {
+		query = query.Where("created_at >= ?", req.EarlyCreatedTime)
+	}
+	if !req.LateCreatedTime.IsZero() {
+		query = query.Where("created_at <= ?", req.LateCreatedTime)
+	}
+
+	// 计算总数
+	if err := query.Count(&total).Error; err != nil {
+		return nil, 0, err
+	}
+
+	// 查询数据
+	if err := query.Find(&channels).Error; err != nil {
+		return nil, 0, err
+	}
+
+	// 转换为 DTO
+	dtoList := make([]*dto.Channel, len(channels))
+	for i, c := range channels {
+		dtoList[i] = r.convertToDTO(&c)
+	}
+
+	return dtoList, total, nil
+}
+
 // Benchmark 执行基准测试
 func (r *channelRepository) Benchmark(count int) error {
 	utils.SysInfo("开始执行渠道基准测试...")
@@ -337,21 +514,15 @@ func (r *channelRepository) Benchmark(count int) error {
 		}
 
 		// 创建
-		if err := r.Create(testChannel); err != nil {
-			utils.SysError("创建渠道失败: " + err.Error())
-			return err
-		}
-
-		// 获取创建后的记录
-		createdChannel, err := r.GetByID(testChannel.ChannelID)
+		createdChannel, err := r.Create(testChannel)
 		if err != nil {
-			utils.SysError("获取创建的渠道失败: " + err.Error())
+			utils.SysError("创建渠道失败: " + err.Error())
 			return err
 		}
 
 		// 更新
 		createdChannel.Status = 2
-		if err := r.Update(createdChannel); err != nil {
+		if _, err := r.Update(createdChannel); err != nil {
 			utils.SysError("更新渠道失败: " + err.Error())
 			return err
 		}

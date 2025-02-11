@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"math/rand"
 	"nexus-ai/common"
+	channelGroupDto "nexus-ai/dto"
 	dto "nexus-ai/dto/model"
 	"nexus-ai/model"
 	"nexus-ai/utils"
@@ -14,13 +15,14 @@ import (
 
 // ChannelGroupRepository 渠道组仓储接口
 type ChannelGroupRepository interface {
-	Create(channelGroup *dto.ChannelGroup) error
-	Update(channelGroup *dto.ChannelGroup) error
+	Create(channelGroup *dto.ChannelGroup) (*dto.ChannelGroup, error)
+	Update(channelGroup *dto.ChannelGroup) (*dto.ChannelGroup, error)
 	Delete(channelGroupID string) error
 	GetByID(channelGroupID string) (*dto.ChannelGroup, error)
 	GetByName(name string) (*dto.ChannelGroup, error)
 	List(page, pageSize int) ([]*dto.ChannelGroup, int64, error)
 	GetListByDefaultLevel(defaultLevel int) ([]*dto.ChannelGroup, error)
+	Search(req *channelGroupDto.ChannelGroupSearchRequest) ([]*dto.ChannelGroup, int64, error)
 	Benchmark(count int) error
 }
 
@@ -103,21 +105,27 @@ func (r *channelGroupRepository) convertToModel(dto *dto.ChannelGroup) (*model.C
 }
 
 // Create 创建渠道组
-func (r *channelGroupRepository) Create(channelGroup *dto.ChannelGroup) error {
+func (r *channelGroupRepository) Create(channelGroup *dto.ChannelGroup) (*dto.ChannelGroup, error) {
 	model, err := r.convertToModel(channelGroup)
 	if err != nil {
-		return err
+		return nil, err
 	}
-	return r.db.Create(model).Error
+	if err := r.db.Create(model).Error; err != nil {
+		return nil, err
+	}
+	return r.convertToDTO(model), nil
 }
 
 // Update 更新渠道组
-func (r *channelGroupRepository) Update(channelGroup *dto.ChannelGroup) error {
+func (r *channelGroupRepository) Update(channelGroup *dto.ChannelGroup) (*dto.ChannelGroup, error) {
 	modelData, err := r.convertToModel(channelGroup)
 	if err != nil {
-		return err
+		return nil, err
 	}
-	return r.db.Model(&model.ChannelGroup{}).Where("channel_group_id = ?", channelGroup.ChannelGroupID).Updates(modelData).Error
+	if err := r.db.Model(&model.ChannelGroup{}).Where("channel_group_id = ?", channelGroup.ChannelGroupID).Updates(modelData).Error; err != nil {
+		return nil, err
+	}
+	return r.GetByID(channelGroup.ChannelGroupID)
 }
 
 // Delete 删除渠道组
@@ -179,6 +187,117 @@ func (r *channelGroupRepository) GetListByDefaultLevel(defaultLevel int) ([]*dto
 	return dtoList, nil
 }
 
+// Search 根据搜索条件筛选渠道组
+func (r *channelGroupRepository) Search(req *channelGroupDto.ChannelGroupSearchRequest) ([]*dto.ChannelGroup, int64, error) {
+	var total int64
+	var channelGroups []model.ChannelGroup
+
+	query := r.db.Model(&model.ChannelGroup{})
+
+	// 基本信息筛选
+	if req.ChannelGroupID != "" {
+		query = query.Where("channel_group_id = ?", req.ChannelGroupID)
+	}
+	if req.ChannelGroupName != "" {
+		query = query.Where("channel_group_name LIKE ?", "%"+req.ChannelGroupName+"%")
+	}
+
+	// 等级筛选
+	if len(req.Levels) > 0 {
+		query = query.Where("CAST(JSON_EXTRACT(channel_group_options, '$.default_level') AS SIGNED) IN (?)", req.Levels)
+	}
+
+	// 渠道和模型筛选
+	if len(req.Channels) > 0 {
+		for _, channelID := range req.Channels {
+			query = query.Where("JSON_CONTAINS(CAST(channel_group_channels->>'$.channels' AS JSON), JSON_ARRAY(?))", channelID)
+		}
+	}
+	if len(req.Models) > 0 {
+		for _, modelID := range req.Models {
+			query = query.Where("JSON_CONTAINS(JSON_KEYS(CAST(channel_group_channels->>'$.models_map' AS JSON)), JSON_ARRAY(?))", modelID)
+		}
+	}
+
+	// API折扣范围查询，考虑折扣过期时间
+	if req.MinAPIDiscount > 0 {
+		query = query.Where(`
+			CASE 
+				WHEN CAST(JSON_EXTRACT(channel_group_options, '$.api_discount_expire_at') AS DATETIME) < NOW() 
+				THEN 1 
+				ELSE CAST(JSON_EXTRACT(channel_group_options, '$.api_discount') AS DECIMAL(10,2)) 
+			END >= ?`, req.MinAPIDiscount)
+	}
+	if req.MaxAPIDiscount > 0 {
+		query = query.Where(`
+			CASE 
+				WHEN CAST(JSON_EXTRACT(channel_group_options, '$.api_discount_expire_at') AS DATETIME) < NOW() 
+				THEN 1 
+				ELSE CAST(JSON_EXTRACT(channel_group_options, '$.api_discount') AS DECIMAL(10,2)) 
+			END <= ?`, req.MaxAPIDiscount)
+	}
+
+	// 并发请求数范围查询
+	if req.MinConcurrentRequests > 0 {
+		query = query.Where("CAST(JSON_EXTRACT(channel_group_options, '$.max_concurrent_requests') AS SIGNED) >= ?", req.MinConcurrentRequests)
+	}
+	if req.MaxConcurrentRequests > 0 {
+		query = query.Where("CAST(JSON_EXTRACT(channel_group_options, '$.max_concurrent_requests') AS SIGNED) <= ?", req.MaxConcurrentRequests)
+	}
+
+	// 价格系数范围查询
+	if req.MinRequestPriceFactor > 0 {
+		query = query.Where("CAST(JSON_EXTRACT(channel_group_price_factor, '$.request_price_factor') AS DECIMAL(10,2)) >= ?", req.MinRequestPriceFactor)
+	}
+	if req.MaxRequestPriceFactor > 0 {
+		query = query.Where("CAST(JSON_EXTRACT(channel_group_price_factor, '$.request_price_factor') AS DECIMAL(10,2)) <= ?", req.MaxRequestPriceFactor)
+	}
+	if req.MinResponsePriceFactor > 0 {
+		query = query.Where("CAST(JSON_EXTRACT(channel_group_price_factor, '$.response_price_factor') AS DECIMAL(10,2)) >= ?", req.MinResponsePriceFactor)
+	}
+	if req.MaxResponsePriceFactor > 0 {
+		query = query.Where("CAST(JSON_EXTRACT(channel_group_price_factor, '$.response_price_factor') AS DECIMAL(10,2)) <= ?", req.MaxResponsePriceFactor)
+	}
+	if req.MinCompletionPriceFactor > 0 {
+		query = query.Where("CAST(JSON_EXTRACT(channel_group_price_factor, '$.completion_price_factor') AS DECIMAL(10,2)) >= ?", req.MinCompletionPriceFactor)
+	}
+	if req.MaxCompletionPriceFactor > 0 {
+		query = query.Where("CAST(JSON_EXTRACT(channel_group_price_factor, '$.completion_price_factor') AS DECIMAL(10,2)) <= ?", req.MaxCompletionPriceFactor)
+	}
+	if req.MinCachePriceFactor > 0 {
+		query = query.Where("CAST(JSON_EXTRACT(channel_group_price_factor, '$.cache_price_factor') AS DECIMAL(10,2)) >= ?", req.MinCachePriceFactor)
+	}
+	if req.MaxCachePriceFactor > 0 {
+		query = query.Where("CAST(JSON_EXTRACT(channel_group_price_factor, '$.cache_price_factor') AS DECIMAL(10,2)) <= ?", req.MaxCachePriceFactor)
+	}
+
+	// 时间范围查询
+	if !req.EarlyCreatedTime.IsZero() {
+		query = query.Where("created_at >= ?", req.EarlyCreatedTime)
+	}
+	if !req.LateCreatedTime.IsZero() {
+		query = query.Where("created_at <= ?", req.LateCreatedTime)
+	}
+
+	// 计算总数
+	if err := query.Count(&total).Error; err != nil {
+		return nil, 0, err
+	}
+
+	// 查询数据
+	if err := query.Find(&channelGroups).Error; err != nil {
+		return nil, 0, err
+	}
+
+	// 转换为 DTO
+	dtoList := make([]*dto.ChannelGroup, len(channelGroups))
+	for i, cg := range channelGroups {
+		dtoList[i] = r.convertToDTO(&cg)
+	}
+
+	return dtoList, total, nil
+}
+
 // Benchmark 执行基准测试
 func (r *channelGroupRepository) Benchmark(count int) error {
 	utils.SysInfo("开始执行渠道组基准测试...")
@@ -208,21 +327,15 @@ func (r *channelGroupRepository) Benchmark(count int) error {
 		}
 
 		// 创建
-		if err := r.Create(testChannelGroup); err != nil {
-			utils.SysError("创建渠道组失败: " + err.Error())
-			return err
-		}
-
-		// 获取创建后的记录
-		createdChannelGroup, err := r.GetByID(testChannelGroup.ChannelGroupID)
+		createdChannelGroup, err := r.Create(testChannelGroup)
 		if err != nil {
-			utils.SysError("获取创建的渠道组失败: " + err.Error())
+			utils.SysError("创建渠道组失败: " + err.Error())
 			return err
 		}
 
 		// 更新
 		createdChannelGroup.ChannelGroupOptions.DefaultLevel = rand.Intn(5) + 1
-		if err := r.Update(createdChannelGroup); err != nil {
+		if _, err := r.Update(createdChannelGroup); err != nil {
 			utils.SysError("更新渠道组失败: " + err.Error())
 			return err
 		}

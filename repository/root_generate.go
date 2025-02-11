@@ -17,6 +17,7 @@ func RootGenerate(db *gorm.DB) {
 	userGroupRepo := NewUserGroupRepository(db)
 	userRepo := NewUserRepository(db)
 	modelGroupRepo := NewModelGroupRepository(db)
+	channelGroupRepo := NewChannelGroupRepository(db)
 
 	// 创建管理员用户组
 	adminGroup, err := createAdministratorGroup(userGroupRepo)
@@ -40,6 +41,12 @@ func RootGenerate(db *gorm.DB) {
 	// 创建模型组
 	if err := createModelGroups(modelGroupRepo); err != nil {
 		utils.SysError("创建模型组失败: " + err.Error())
+		return
+	}
+
+	// 创建渠道组
+	if err := createChannelGroups(channelGroupRepo); err != nil {
+		utils.SysError("创建渠道组失败: " + err.Error())
 		return
 	}
 }
@@ -197,13 +204,13 @@ func createModelGroups(modelGroupRepo ModelGroupRepository) error {
 	}
 
 	// 创建 ordinary 等级模型组
-	_, err = modelGroupRepo.GetByName("ordinary")
+	ordinaryModelGroup, err := modelGroupRepo.GetByName("ordinary")
 	if err != nil && err != gorm.ErrRecordNotFound {
 		return err
 	}
 
 	if err == gorm.ErrRecordNotFound {
-		ordinaryModelGroup := &dto.ModelGroup{
+		ordinaryModelGroup = &dto.ModelGroup{
 			ModelGroupID:          utils.GenerateRandomUUID(12),
 			ModelGroupName:        "ordinary",
 			ModelGroupDescription: "普通用户模型组",
@@ -226,6 +233,100 @@ func createModelGroups(modelGroupRepo ModelGroupRepository) error {
 		if _, err := modelGroupRepo.Create(ordinaryModelGroup); err != nil {
 			return fmt.Errorf("创建ordinary模型组失败: %w", err)
 		}
+	}
+	// 更新Redis中的ordinary模型组ID
+	ctx := context.Background()
+	if err := redis.Set(ctx, "ordinary_model_group_id", ordinaryModelGroup.ModelGroupID, 0); err != nil {
+		utils.SysError("更新ordinary模型组ID到Redis失败: " + err.Error())
+	} else {
+		utils.SysInfo("ordinary模型组ID已更新到Redis: " + ordinaryModelGroup.ModelGroupID)
+	}
+
+	return nil
+}
+
+// createChannelGroups 创建渠道组
+func createChannelGroups(channelGroupRepo ChannelGroupRepository) error {
+	// 创建 administrator 渠道组
+	_, err := channelGroupRepo.GetByName("administrator")
+	if err != nil && err != gorm.ErrRecordNotFound {
+		return err
+	}
+
+	if err == gorm.ErrRecordNotFound {
+		adminGroup := &dto.ChannelGroup{
+			ChannelGroupID:          utils.GenerateRandomUUID(12),
+			ChannelGroupName:        "administrator",
+			ChannelGroupDescription: "管理员渠道组",
+			ChannelGroupPriceFactor: dto.ChannelGroupPriceFactor{
+				RequestPriceFactor:    0,
+				ResponsePriceFactor:   0,
+				CompletionPriceFactor: 0,
+				CachePriceFactor:      0,
+			},
+			ChannelGroupOptions: dto.ChannelGroupOptions{
+				MaxConcurrentRequests: 10000,
+				DefaultLevel:          99,
+				APIDiscount:           0,
+				APIDiscountExpireAt:   utils.MySQLTime(time.Now().Add(36500 * 24 * time.Hour)), // 100年后过期
+			},
+			ChannelGroupChannels: dto.ChannelGroupChannels{
+				Channels:  []string{"*"},
+				ModelsMap: map[string][]string{"*": {"*"}},
+			},
+			CreatedAt: utils.MySQLTime(time.Now()),
+			UpdatedAt: utils.MySQLTime(time.Now()),
+		}
+
+		if _, err := channelGroupRepo.Create(adminGroup); err != nil {
+			return fmt.Errorf("创建administrator渠道组失败: %w", err)
+		}
+	}
+
+	// 创建 ordinary 渠道组
+	ordinaryGroup, err := channelGroupRepo.GetByName("ordinary")
+	if err != nil && err != gorm.ErrRecordNotFound {
+		return err
+	}
+
+	if err == gorm.ErrRecordNotFound {
+		ordinaryGroup = &dto.ChannelGroup{
+			ChannelGroupID:          utils.GenerateRandomUUID(12),
+			ChannelGroupName:        "ordinary",
+			ChannelGroupDescription: "普通用户渠道组",
+			ChannelGroupPriceFactor: dto.ChannelGroupPriceFactor{
+				RequestPriceFactor:    1.0,
+				ResponsePriceFactor:   1.0,
+				CompletionPriceFactor: 1.0,
+				CachePriceFactor:      0.5,
+			},
+			ChannelGroupOptions: dto.ChannelGroupOptions{
+				MaxConcurrentRequests: 5,
+				DefaultLevel:          1,
+				APIDiscount:           1.0,
+				APIDiscountExpireAt:   utils.MySQLTime(time.Now().Add(36500 * 24 * time.Hour)), // 100年后过期
+			},
+			ChannelGroupChannels: dto.ChannelGroupChannels{
+				Channels:  []string{},
+				ModelsMap: map[string][]string{},
+			},
+			CreatedAt: utils.MySQLTime(time.Now()),
+			UpdatedAt: utils.MySQLTime(time.Now()),
+		}
+
+		createdGroup, err := channelGroupRepo.Create(ordinaryGroup)
+		if err != nil {
+			return fmt.Errorf("创建ordinary渠道组失败: %w", err)
+		}
+		ordinaryGroup = createdGroup
+	}
+
+	// 更新Redis中的ordinary渠道组ID
+	ctx := context.Background()
+	if err := redis.Set(ctx, "ordinary_channel_group_id", ordinaryGroup.ChannelGroupID, 0); err != nil {
+		utils.SysError("更新ordinary渠道组ID到Redis失败: " + err.Error())
+	} else {
+		utils.SysInfo("ordinary渠道组ID已更新到Redis: " + ordinaryGroup.ChannelGroupID)
 	}
 
 	return nil

@@ -23,8 +23,8 @@ type TokenOptions struct {
 	MaxRequestsPerDay     int      `json:"max_requests_per_day"`    // 每天最大请求数
 	AllowedIPs            []string `json:"allowed_ips"`             // IP白名单
 	DisallowedIPs         []string `json:"disallowed_ips"`          // IP黑名单
-	RequireSignature      bool     `json:"require_signature"`       // 是否要求签名
-	DisableRateLimit      bool     `json:"disable_rate_limit"`      // 是否禁用频率限制
+	RequireSignature      *bool    `json:"require_signature"`       // 是否要求签名
+	DisableRateLimit      *bool    `json:"disable_rate_limit"`      // 是否禁用频率限制
 	AvailableLevels       []int    `json:"available_levels"`        // 可用等级
 }
 

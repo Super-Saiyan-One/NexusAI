@@ -4,6 +4,8 @@ import (
 	"fmt"
 	"math/rand"
 	"nexus-ai/common"
+	"nexus-ai/constant"
+	tokenDto "nexus-ai/dto"
 	dto "nexus-ai/dto/model"
 	"nexus-ai/model"
 	"nexus-ai/utils"
@@ -23,6 +25,7 @@ type TokenRepository interface {
 	List(page, pageSize int) ([]*dto.Token, int64, error)
 	ListByQuota(minQuota float64, page, pageSize int) ([]*dto.Token, int64, error)
 	ListByOptions(options dto.TokenOptions, page, pageSize int) ([]*dto.Token, int64, error)
+	Search(req *tokenDto.TokenSearchRequest) ([]*dto.Token, int64, error)
 	Benchmark(count int) error
 }
 
@@ -257,6 +260,163 @@ func (r *tokenRepository) ListByOptions(options dto.TokenOptions, page, pageSize
 	return dtoList, total, nil
 }
 
+// Search 根据搜索条件筛选令牌
+func (r *tokenRepository) Search(req *tokenDto.TokenSearchRequest) ([]*dto.Token, int64, error) {
+	var total int64
+	var tokens []model.Token
+
+	query := r.db.Model(&model.Token{})
+
+	// 基本信息筛选
+	if req.TokenID != "" {
+		query = query.Where("token_id = ?", req.TokenID)
+	}
+	if req.UserID != "" {
+		query = query.Where("user_id = ?", req.UserID)
+	}
+	if req.TokenName != "" {
+		query = query.Where("token_name LIKE ?", "%"+req.TokenName+"%")
+	}
+	if req.TokenKey != "" {
+		query = query.Where("token_key = ?", req.TokenKey)
+	}
+	if req.Status != 0 {
+		query = query.Where("status = ?", req.Status)
+	}
+
+	// 配额范围查询
+	if req.MinTokenQuotaTotal > 0 {
+		query = query.Where("token_quota_total >= ?", req.MinTokenQuotaTotal)
+	}
+	if req.MaxTokenQuotaTotal > 0 {
+		query = query.Where("token_quota_total <= ?", req.MaxTokenQuotaTotal)
+	}
+	if req.MinTokenQuotaUsed > 0 {
+		query = query.Where("token_quota_used >= ?", req.MinTokenQuotaUsed)
+	}
+	if req.MaxTokenQuotaUsed > 0 {
+		query = query.Where("token_quota_used <= ?", req.MaxTokenQuotaUsed)
+	}
+	if req.MinTokenQuotaLeft > 0 {
+		query = query.Where("token_quota_left >= ?", req.MinTokenQuotaLeft)
+	}
+	if req.MaxTokenQuotaLeft > 0 {
+		query = query.Where("token_quota_left <= ?", req.MaxTokenQuotaLeft)
+	}
+	if req.MinTokenQuotaFrozen > 0 {
+		query = query.Where("token_quota_frozen >= ?", req.MinTokenQuotaFrozen)
+	}
+	if req.MaxTokenQuotaFrozen > 0 {
+		query = query.Where("token_quota_frozen <= ?", req.MaxTokenQuotaFrozen)
+	}
+
+	// 渠道和模型筛选
+	if len(req.ExtraAllowedChannels) > 0 {
+		for _, channelID := range req.ExtraAllowedChannels {
+			query = query.Where("JSON_CONTAINS(CAST(token_channels->>'$.extra_allowed_channels' AS JSON), JSON_ARRAY(?))", channelID)
+		}
+	}
+	if len(req.PriorityChannels) > 0 {
+		for _, channelID := range req.PriorityChannels {
+			query = query.Where("JSON_CONTAINS(CAST(token_channels->>'$.priority_channels' AS JSON), JSON_ARRAY(?))", channelID)
+		}
+	}
+	if len(req.AllowedModels) > 0 {
+		for _, modelID := range req.AllowedModels {
+			query = query.Where("JSON_CONTAINS(CAST(token_models->>'$.allowed_models' AS JSON), JSON_ARRAY(?))", modelID)
+		}
+	}
+
+	// 并发和频率限制查询
+	if req.MinConcurrentRequests > 0 {
+		query = query.Where("CAST(JSON_EXTRACT(token_options, '$.max_concurrent_requests') AS SIGNED) >= ?", req.MinConcurrentRequests)
+	}
+	if req.MaxConcurrentRequests > 0 {
+		query = query.Where("CAST(JSON_EXTRACT(token_options, '$.max_concurrent_requests') AS SIGNED) <= ?", req.MaxConcurrentRequests)
+	}
+	if req.MinRateLimitRequestsPerMinute > 0 {
+		query = query.Where("CAST(JSON_EXTRACT(token_options, '$.max_requests_per_minute') AS SIGNED) >= ?", req.MinRateLimitRequestsPerMinute)
+	}
+	if req.MaxRateLimitRequestsPerMinute > 0 {
+		query = query.Where("CAST(JSON_EXTRACT(token_options, '$.max_requests_per_minute') AS SIGNED) <= ?", req.MaxRateLimitRequestsPerMinute)
+	}
+	if req.MinRateLimitRequestsPerHour > 0 {
+		query = query.Where("CAST(JSON_EXTRACT(token_options, '$.max_requests_per_hour') AS SIGNED) >= ?", req.MinRateLimitRequestsPerHour)
+	}
+	if req.MaxRateLimitRequestsPerHour > 0 {
+		query = query.Where("CAST(JSON_EXTRACT(token_options, '$.max_requests_per_hour') AS SIGNED) <= ?", req.MaxRateLimitRequestsPerHour)
+	}
+	if req.MinRateLimitRequestsPerDay > 0 {
+		query = query.Where("CAST(JSON_EXTRACT(token_options, '$.max_requests_per_day') AS SIGNED) >= ?", req.MinRateLimitRequestsPerDay)
+	}
+	if req.MaxRateLimitRequestsPerDay > 0 {
+		query = query.Where("CAST(JSON_EXTRACT(token_options, '$.max_requests_per_day') AS SIGNED) <= ?", req.MaxRateLimitRequestsPerDay)
+	}
+
+	// IP白名单和黑名单筛选
+	if len(req.AllowedIPs) > 0 {
+		for _, ip := range req.AllowedIPs {
+			query = query.Where("JSON_CONTAINS(CAST(token_options->>'$.allowed_ips' AS JSON), JSON_ARRAY(?))", ip)
+		}
+	}
+	if len(req.DisallowedIPs) > 0 {
+		for _, ip := range req.DisallowedIPs {
+			query = query.Where("JSON_CONTAINS(CAST(token_options->>'$.disallowed_ips' AS JSON), JSON_ARRAY(?))", ip)
+		}
+	}
+
+	// 其他选项筛选
+	if req.RequireSignature {
+		query = query.Where("JSON_EXTRACT(token_options, '$.require_signature') = true")
+	}
+	if req.DisableRateLimit {
+		query = query.Where("JSON_EXTRACT(token_options, '$.disable_rate_limit') = true")
+	}
+	if len(req.AvailableLevels) > 0 {
+		for _, level := range req.AvailableLevels {
+			query = query.Where("JSON_CONTAINS(CAST(token_options->>'$.available_levels' AS JSON), CAST(? AS JSON))", level)
+		}
+	}
+
+	// 时间范围查询
+	if !req.EarlyCreatedTime.IsZero() {
+		query = query.Where("created_at >= ?", req.EarlyCreatedTime)
+	}
+	if !req.LateCreatedTime.IsZero() {
+		query = query.Where("created_at <= ?", req.LateCreatedTime)
+	}
+	if !req.EarlyUpdatedTime.IsZero() {
+		query = query.Where("updated_at >= ?", req.EarlyUpdatedTime)
+	}
+	if !req.LateUpdatedTime.IsZero() {
+		query = query.Where("updated_at <= ?", req.LateUpdatedTime)
+	}
+	if !req.EarlyExpireTime.IsZero() {
+		query = query.Where("expire_time >= ?", req.EarlyExpireTime)
+	}
+	if !req.LateExpireTime.IsZero() {
+		query = query.Where("expire_time <= ?", req.LateExpireTime)
+	}
+
+	// 计算总数
+	if err := query.Count(&total).Error; err != nil {
+		return nil, 0, err
+	}
+
+	// 查询数据
+	if err := query.Find(&tokens).Error; err != nil {
+		return nil, 0, err
+	}
+
+	// 转换为 DTO
+	dtoList := make([]*dto.Token, len(tokens))
+	for i, t := range tokens {
+		dtoList[i] = r.convertToDTO(&t)
+	}
+
+	return dtoList, total, nil
+}
+
 // Benchmark 执行基准测试
 func (r *tokenRepository) Benchmark(count int) error {
 	utils.SysInfo("开始执行令牌基准测试...")
@@ -286,8 +446,8 @@ func (r *tokenRepository) Benchmark(count int) error {
 				MaxRequestsPerMinute:  rand.Intn(100) + 1,
 				MaxRequestsPerHour:    rand.Intn(1000) + 1,
 				MaxRequestsPerDay:     rand.Intn(10000) + 1,
-				RequireSignature:      rand.Intn(2) == 1,
-				DisableRateLimit:      rand.Intn(2) == 1,
+				RequireSignature:      constant.DefaultTokenRequireSignature,
+				DisableRateLimit:      constant.DefaultTokenDisableRateLimit,
 				AvailableLevels:       []int{1, 2, 3},
 			},
 		}

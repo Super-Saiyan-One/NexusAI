@@ -88,11 +88,11 @@ const (
 )
 
 const (
-	DefaultModelAPIDiscount           = 1
-	DefaultModelRequestPriceFactor    = 1
-	DefaultModelResponsePriceFactor   = 1
-	DefaultModelCompletionPriceFactor = 1
-	DefaultModelCachePriceFactor      = 1
+	DefaultModelAPIDiscount     = 1
+	DefaultModelRequestPrice    = 1
+	DefaultModelResponsePrice   = 1
+	DefaultModelCompletionPrice = 1
+	DefaultModelCachePrice      = 1
 )
 
 const (
@@ -132,4 +132,20 @@ const (
 	DefaultChannelGroupResponsePriceFactor   = 1
 	DefaultChannelGroupCompletionPriceFactor = 1
 	DefaultChannelGroupCachePriceFactor      = 1
+)
+
+const (
+	DefaultTokenMaxConcurrentRequests = 100
+	DefaultTokenMaxRequestsPerMinute  = 3000
+	DefaultTokenMaxRequestsPerHour    = 100000
+	DefaultTokenMaxRequestsPerDay     = 1000000
+	DefaultTokenQuotaTotal            = 0
+	DefaultTokenQuotaUsed             = 0
+	DefaultTokenQuotaLeft             = 0
+	DefaultTokenQuotaFrozen           = 0
+)
+
+var (
+	DefaultTokenRequireSignature = new(bool) // false by default
+	DefaultTokenDisableRateLimit = new(bool) // false by default
 )

@@ -2,15 +2,15 @@ package service
 
 import (
 	"fmt"
+	tokenDto "nexus-ai/dto"
 	dto "nexus-ai/dto/model"
 	"nexus-ai/repository"
-	"nexus-ai/utils"
 )
 
 type TokenService interface {
 	TokenCreate(repo repository.TokenRepository, token *dto.Token) (*dto.Token, error)
 	TokenUpdate(repo repository.TokenRepository, token *dto.Token) (*dto.Token, error)
-	TokenSearch(repo repository.TokenRepository, tokenID string, tokenKey string, userID string) ([]*dto.Token, error)
+	TokenSearch(repo repository.TokenRepository, tokenSearch *tokenDto.TokenSearchRequest) ([]*dto.Token, error)
 	TokenDelete(repo repository.TokenRepository, tokenID string) error
 }
 
@@ -21,16 +21,9 @@ func NewTokenService() TokenService {
 }
 
 func (ts *tokenService) TokenCreate(repo repository.TokenRepository, token *dto.Token) (*dto.Token, error) {
-	token.TokenID = utils.GenerateRandomUUID(12)
-	token.TokenKey = utils.GenerateRandomString(32)
-	token.Status = 1
-
 	if token.TokenQuotaTotal < 0 {
 		return nil, fmt.Errorf("token quota cannot be negative")
 	}
-	token.TokenQuotaLeft = token.TokenQuotaTotal
-	token.TokenQuotaUsed = 0
-	token.TokenQuotaFrozen = 0
 
 	createdToken, err := repo.Create(token)
 	if err != nil {
@@ -64,29 +57,12 @@ func (ts *tokenService) TokenUpdate(repo repository.TokenRepository, token *dto.
 	return updatedToken, nil
 }
 
-func (ts *tokenService) TokenSearch(repo repository.TokenRepository, tokenID string, tokenKey string, userID string) ([]*dto.Token, error) {
-	if tokenID != "" {
-		token, err := repo.GetByID(tokenID)
-		if err != nil {
-			return nil, err
-		}
-		return []*dto.Token{token}, nil
+func (ts *tokenService) TokenSearch(repo repository.TokenRepository, tokenSearch *tokenDto.TokenSearchRequest) ([]*dto.Token, error) {
+	tokens, _, err := repo.Search(tokenSearch)
+	if err != nil {
+		return nil, err
 	}
-	if tokenKey != "" {
-		token, err := repo.GetByKey(tokenKey)
-		if err != nil {
-			return nil, err
-		}
-		return []*dto.Token{token}, nil
-	}
-	if userID != "" {
-		tokens, err := repo.GetByUserID(userID)
-		if err != nil {
-			return nil, err
-		}
-		return tokens, nil
-	}
-	return nil, nil
+	return tokens, nil
 }
 
 func (ts *tokenService) TokenDelete(repo repository.TokenRepository, tokenID string) error {

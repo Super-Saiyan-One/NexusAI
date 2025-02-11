@@ -53,7 +53,9 @@ func (uc *userController) UserRegister(c *gin.Context) {
 	if user.Username == "" {
 		user.Username = utils.GenerateRandomString(8)
 	}
-	user.UserGroupID, _ = redis.Get(c, "ordinary_user_group_id")
+	if user.UserGroupID == "" {
+		user.UserGroupID, _ = redis.Get(c, "ordinary_user_group_id")
+	}
 	user.Password = utils.HashPassword(user.Password)
 	user.Status = 1
 	user.OAuthInfo = dto.OAuthInfo{}
