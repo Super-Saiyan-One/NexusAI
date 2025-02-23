@@ -1,0 +1,6 @@
+base_url: "https://api.lumalabs.ai/dream-machine/v1"
+api_key: "luma-05cb2816-3dde-49d3-b6ba-0604ca4f261d-68502283-ad54-445e-b02d-141353424d26"
+timeout_seconds: 30
+max_retries: 5
+poll_interval_seconds: 3
+id: "4013538e-5469-43e8-9101-76b24008ee41"

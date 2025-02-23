@@ -6,18 +6,17 @@ import (
 	"fmt"
 	"net/http"
 	"net/url"
+	"nexus-ai/api/kling/models"
+	service2 "nexus-ai/api/kling/service"
 	"strconv"
 	"strings"
-
-	"nexus-ai/kling/models"
-	"nexus-ai/kling/service"
 )
 
 type ImageController struct {
-	service service.ImageService
+	service service2.ImageService
 }
 
-func NewImageController(s service.ImageService) *ImageController {
+func NewImageController(s service2.ImageService) *ImageController {
 	return &ImageController{service: s}
 }
 
@@ -89,7 +88,7 @@ func (c *ImageController) ListImageTasks(w http.ResponseWriter, r *http.Request)
 
 // 私有方法
 func (c *ImageController) handleServiceError(w http.ResponseWriter, err error) {
-	var serviceErr *service.ServiceError
+	var serviceErr *service2.ServiceError
 
 	if errors.As(err, &serviceErr) {
 		respondJSON(w, serviceErr.HTTPStatus(), map[string]interface{}{

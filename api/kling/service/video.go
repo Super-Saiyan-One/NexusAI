@@ -4,15 +4,14 @@ import (
 	"context"
 	"fmt"
 	"net/http"
-
-	"nexus-ai/kling/api"
-	"nexus-ai/kling/models"
+	"nexus-ai/api/kling/api"
+	models2 "nexus-ai/api/kling/models"
 )
 
 // VideoService 视频服务接口定义
 type VideoService interface {
-	CreateVideoTask(ctx context.Context, req models.TextToVideoRequest) (*models.CreateTaskResponse, error)
-	GetVideoTask(ctx context.Context, taskID, externalTaskID string) (*models.QueryTaskResponse, error)
+	CreateVideoTask(ctx context.Context, req models2.TextToVideoRequest) (*models2.CreateTaskResponse, error)
+	GetVideoTask(ctx context.Context, taskID, externalTaskID string) (*models2.QueryTaskResponse, error)
 }
 
 // 私有实现结构体（小写开头表示不可导出）
@@ -33,15 +32,15 @@ func NewVideoService(apiClient *api.Client) VideoService {
 // CreateVideoTask 创建视频任务实现
 func (s *videoServiceImpl) CreateVideoTask(
 	ctx context.Context,
-	req models.TextToVideoRequest,
-) (*models.CreateTaskResponse, error) {
+	req models2.TextToVideoRequest,
+) (*models2.CreateTaskResponse, error) {
 	// 调用API客户端
 	apiReq, err := s.apiClient.CreateRequest(ctx, "POST", "/v1/videos/text2video", req)
 	if err != nil {
 		return nil, fmt.Errorf("failed to create API request: %w", err)
 	}
 
-	var resp models.CreateTaskResponse
+	var resp models2.CreateTaskResponse
 	if err := s.apiClient.DoRequest(apiReq, &resp); err != nil {
 		return nil, wrapAPIError(err)
 	}
@@ -58,7 +57,7 @@ func (s *videoServiceImpl) GetVideoTask(
 	ctx context.Context,
 	taskID,
 	externalTaskID string,
-) (*models.QueryTaskResponse, error) {
+) (*models2.QueryTaskResponse, error) {
 	// 构建请求路径
 	path := buildTaskPath(taskID, externalTaskID)
 
@@ -67,7 +66,7 @@ func (s *videoServiceImpl) GetVideoTask(
 		return nil, fmt.Errorf("failed to create API request: %w", err)
 	}
 
-	var resp models.QueryTaskResponse
+	var resp models2.QueryTaskResponse
 	if err := s.apiClient.DoRequest(apiReq, &resp); err != nil {
 		return nil, wrapAPIError(err)
 	}

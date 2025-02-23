@@ -2,11 +2,10 @@ package router
 
 import (
 	"net/http"
-
-	"nexus-ai/kling/controller"
+	controller2 "nexus-ai/api/kling/controller"
 )
 
-func NewRouter(videoCtrl *controller.VideoController, imageCtrl *controller.ImageController) http.Handler {
+func NewRouter(videoCtrl *controller2.VideoController, imageCtrl *controller2.ImageController) http.Handler {
 	mux := http.NewServeMux()
 
 	// 视频相关路由

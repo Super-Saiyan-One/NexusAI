@@ -4,16 +4,15 @@ import (
 	"context"
 	"fmt"
 	"net/url"
-
-	"nexus-ai/kling/api"
-	"nexus-ai/kling/models"
+	"nexus-ai/api/kling/api"
+	models2 "nexus-ai/api/kling/models"
 )
 
 // ImageService 图像服务接口定义
 type ImageService interface {
-	CreateImageTask(ctx context.Context, req models.TextToImageRequest) (*models.CreateTaskResponse, error)
-	GetImageTask(ctx context.Context, taskID string) (*models.QueryTaskResponse, error)
-	ListImageTasks(ctx context.Context, pageNum, pageSize int) (*models.TaskListResponse, error)
+	CreateImageTask(ctx context.Context, req models2.TextToImageRequest) (*models2.CreateTaskResponse, error)
+	GetImageTask(ctx context.Context, taskID string) (*models2.QueryTaskResponse, error)
+	ListImageTasks(ctx context.Context, pageNum, pageSize int) (*models2.TaskListResponse, error)
 }
 
 type imageService struct {
@@ -32,14 +31,14 @@ func NewImageService(apiClient *api.Client) ImageService {
 // CreateImageTask 创建图像任务实现
 func (s *imageService) CreateImageTask(
 	ctx context.Context,
-	req models.TextToImageRequest,
-) (*models.CreateTaskResponse, error) {
+	req models2.TextToImageRequest,
+) (*models2.CreateTaskResponse, error) {
 	apiReq, err := s.apiClient.CreateRequest(ctx, "POST", "/v1/images/generations", req)
 	if err != nil {
 		return nil, fmt.Errorf("failed to create API request: %w", err)
 	}
 
-	var resp models.CreateTaskResponse
+	var resp models2.CreateTaskResponse
 	if err := s.apiClient.DoRequest(apiReq, &resp); err != nil {
 		return nil, wrapAPIError(err)
 	}
@@ -55,7 +54,7 @@ func (s *imageService) CreateImageTask(
 func (s *imageService) GetImageTask(
 	ctx context.Context,
 	taskID string,
-) (*models.QueryTaskResponse, error) {
+) (*models2.QueryTaskResponse, error) {
 	path := buildImageTaskPath(taskID)
 
 	apiReq, err := s.apiClient.CreateRequest(ctx, "GET", path, nil)
@@ -63,7 +62,7 @@ func (s *imageService) GetImageTask(
 		return nil, fmt.Errorf("failed to create API request: %w", err)
 	}
 
-	var resp models.QueryTaskResponse
+	var resp models2.QueryTaskResponse
 	if err := s.apiClient.DoRequest(apiReq, &resp); err != nil {
 		return nil, wrapAPIError(err)
 	}
@@ -79,7 +78,7 @@ func (s *imageService) GetImageTask(
 func (s *imageService) ListImageTasks(
 	ctx context.Context,
 	pageNum, pageSize int,
-) (*models.TaskListResponse, error) {
+) (*models2.TaskListResponse, error) {
 	path := buildImageTaskListPath(pageNum, pageSize)
 
 	apiReq, err := s.apiClient.CreateRequest(ctx, "GET", path, nil)
@@ -87,7 +86,7 @@ func (s *imageService) ListImageTasks(
 		return nil, fmt.Errorf("failed to create API request: %w", err)
 	}
 
-	var resp models.TaskListResponse
+	var resp models2.TaskListResponse
 	if err := s.apiClient.DoRequest(apiReq, &resp); err != nil {
 		return nil, wrapAPIError(err)
 	}
