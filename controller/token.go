@@ -19,6 +19,8 @@ type TokenController interface {
 	TokenUpdate(c *gin.Context)
 	TokenSearch(c *gin.Context)
 	TokenDelete(c *gin.Context)
+	TokenAvailableModels(c *gin.Context)
+	TokenAvailableChannels(c *gin.Context)
 }
 
 type tokenController struct {
@@ -166,4 +168,40 @@ func (tc *tokenController) TokenDelete(c *gin.Context) {
 	}
 	// 成功
 	utils.CommonSuccess(c, http.StatusOK, "Token deleted successfully", constant.SuccessTypeTokenPrefix+"_delete", gin.H{"message": "Token deleted successfully"})
+}
+
+// TokenAvailableModels 获取token可用模型
+func (tc *tokenController) TokenAvailableModels(c *gin.Context) {
+	tokenID := c.Param("token_id")
+	if tokenID == "" {
+		utils.CommonError(c, http.StatusBadRequest, "token_id is required", constant.ErrorTypeTokenPrefix+"_available_models")
+		return
+	}
+
+	tokenRepo := tc.GetTokenRepo()
+	models, err := tc.tokenService.TokenAvailableModels(tokenRepo, tokenID)
+	if err != nil {
+		utils.CommonError(c, http.StatusBadRequest, "Failed to get token available models: "+err.Error(), constant.ErrorTypeTokenPrefix+"_available_models")
+		return
+	}
+
+	utils.CommonSuccess(c, http.StatusOK, "Token available models fetched successfully", constant.SuccessTypeTokenPrefix+"_available_models", gin.H{"models": models})
+}
+
+// TokenAvailableChannels 获取token可用渠道
+func (tc *tokenController) TokenAvailableChannels(c *gin.Context) {
+	tokenID := c.Param("token_id")
+	if tokenID == "" {
+		utils.CommonError(c, http.StatusBadRequest, "token_id is required", constant.ErrorTypeTokenPrefix+"_available_channels")
+		return
+	}
+
+	tokenRepo := tc.GetTokenRepo()
+	channels, err := tc.tokenService.TokenAvailableChannels(tokenRepo, tokenID)
+	if err != nil {
+		utils.CommonError(c, http.StatusBadRequest, "Failed to get token available channels: "+err.Error(), constant.ErrorTypeTokenPrefix+"_available_channels")
+		return
+	}
+
+	utils.CommonSuccess(c, http.StatusOK, "Token available channels fetched successfully", constant.SuccessTypeTokenPrefix+"_available_channels", gin.H{"channels": channels})
 }

@@ -19,5 +19,6 @@ func SetupChannelGroupRouter(server *gin.Engine) {
 		channelGroupRouter.POST("/update", channelGroupController.ChannelGroupUpdate)
 		channelGroupRouter.GET("/search", channelGroupController.ChannelGroupSearch)
 		channelGroupRouter.DELETE("/delete/:channel_group_id", channelGroupController.ChannelGroupDelete)
+		channelGroupRouter.GET("/available_models/:channel_group_id", channelGroupController.ChannelGroupAvailableModels)
 	}
 }

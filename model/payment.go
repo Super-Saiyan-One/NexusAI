@@ -36,9 +36,9 @@ type Payment struct {
 	ExpireTime      utils.MySQLTime `gorm:"column:expire_time;" json:"expire_time"`                    // 支付过期时间
 	RefundInfo      common.JSON     `gorm:"column:refund_info;type:json" json:"refund_info"`           // 退款信息
 
-	CreatedAt utils.MySQLTime `gorm:"column:created_at;index;not null" json:"created_at"` // 记录创建时间
-	UpdatedAt utils.MySQLTime `gorm:"column:updated_at;not null" json:"updated_at"`       // 记录更新时间
-	DeletedAt gorm.DeletedAt  `gorm:"column:deleted_at" json:"deleted_at"`                // 软删除时间
+	CreatedAt utils.MySQLTime `gorm:"column:created_at;not null" json:"created_at"` // 记录创建时间
+	UpdatedAt utils.MySQLTime `gorm:"column:updated_at;not null" json:"updated_at"` // 记录更新时间
+	DeletedAt gorm.DeletedAt  `gorm:"column:deleted_at" json:"deleted_at"`          // 软删除时间
 }
 
 // TableName 表名

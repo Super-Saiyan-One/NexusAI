@@ -505,7 +505,7 @@ func (r *channelRepository) Benchmark(count int) error {
 				RequestsPerDay:    rand.Intn(100000) + 10000,
 			},
 			ModelMapping: dto.ModelMapping{
-				MappingModels: []string{"local-1", "upstream-1"},
+				MappingModels: map[string][]string{"local-1": {"upstream-1"}},
 			},
 			TestModels: dto.TestModels{
 				TestModels:       []string{"test-1", "test-2"},

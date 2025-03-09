@@ -26,9 +26,9 @@ type Billing struct {
 	EndTime        utils.MySQLTime `gorm:"column:end_time;not null" json:"end_time"`                // 账单结束时间
 	DueTime        utils.MySQLTime `gorm:"column:due_time;not null" json:"due_time"`                // 账单到期时间
 
-	CreatedAt utils.MySQLTime `gorm:"column:created_at;index;not null" json:"created_at"` // 创建时间
-	UpdatedAt utils.MySQLTime `gorm:"column:updated_at;not null" json:"updated_at"`       // 更新时间
-	DeletedAt gorm.DeletedAt  `gorm:"column:deleted_at" json:"deleted_at"`                // 删除时间
+	CreatedAt utils.MySQLTime `gorm:"column:created_at;not null" json:"created_at"` // 创建时间
+	UpdatedAt utils.MySQLTime `gorm:"column:updated_at;not null" json:"updated_at"` // 更新时间
+	DeletedAt gorm.DeletedAt  `gorm:"column:deleted_at" json:"deleted_at"`          // 删除时间
 }
 
 // TableName 表名

@@ -118,6 +118,26 @@ func (t MySQLTime) IsZero() bool {
 	return time.Time(t).IsZero()
 }
 
+// Before 检查时间是否早于另一个时间
+func (t MySQLTime) Before(t2 time.Time) bool {
+	return time.Time(t).Before(t2)
+}
+
+// After 检查时间是否晚于另一个时间
+func (t MySQLTime) After(t2 time.Time) bool {
+	return time.Time(t).After(t2)
+}
+
+// Unix 获取时间戳
+func (t MySQLTime) Unix() int64 {
+	return time.Time(t).Unix()
+}
+
+// Time 获取时间
+func (t MySQLTime) Time() time.Time {
+	return time.Time(t)
+}
+
 // FromDeletedAt 从 gorm.DeletedAt 转换为 *MySQLTime
 func FromDeletedAt(t gorm.DeletedAt) *MySQLTime {
 	if !t.Valid {

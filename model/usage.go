@@ -22,9 +22,9 @@ type Usage struct {
 	PriceTotalFactor float64 `gorm:"column:price_total_factor;type:decimal(10,2);not null;default:1.00" json:"price_total_factor"` // 价格总倍率
 	TotalAmount      float64 `gorm:"column:total_amount;type:decimal(10,6);not null;default:0.000000" json:"total_amount"`         // 总金额，支持6位小数
 
-	CreatedAt utils.MySQLTime `gorm:"column:created_at;index;not null" json:"created_at"` // 记录创建时间
-	UpdatedAt utils.MySQLTime `gorm:"column:updated_at;not null" json:"updated_at"`       // 记录更新时间
-	DeletedAt gorm.DeletedAt  `gorm:"column:deleted_at" json:"deleted_at"`                // 软删除时间
+	CreatedAt utils.MySQLTime `gorm:"column:created_at;not null" json:"created_at"` // 记录创建时间
+	UpdatedAt utils.MySQLTime `gorm:"column:updated_at;not null" json:"updated_at"` // 记录更新时间
+	DeletedAt gorm.DeletedAt  `gorm:"column:deleted_at" json:"deleted_at"`          // 软删除时间
 }
 
 // TableName 表名

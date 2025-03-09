@@ -28,3 +28,8 @@ const (
 	ErrorTypeUserGroupPrefix    = "nexus_ai_router_error_user_group_"    // 用户组通用错误前缀
 	ErrorTypeUserPrefix         = "nexus_ai_router_error_user_"          // 用户通用错误前缀
 )
+
+const (
+	ErrorTypeRelayLocal    = "nexus_ai_relay_error_local"
+	ErrorTypeRelayUpstream = "nexus_ai_relay_error_upstream"
+)

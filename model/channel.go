@@ -24,9 +24,9 @@ type Channel struct {
 	ModelMapping       common.JSON `gorm:"column:model_mapping;type:json" json:"model_mapping"`               // 模型映射配置，用于模型名称转换
 	TestModels         common.JSON `gorm:"column:test_models;type:json" json:"test_models"`                   // 测试模型配置
 
-	CreatedAt utils.MySQLTime `gorm:"column:created_at;index;not null" json:"created_at"` // 渠道创建时间
-	UpdatedAt utils.MySQLTime `gorm:"column:updated_at;not null" json:"updated_at"`       // 渠道信息最后更新时间
-	DeletedAt gorm.DeletedAt  `gorm:"column:deleted_at" json:"deleted_at"`
+	CreatedAt utils.MySQLTime `gorm:"column:created_at;not null" json:"created_at"` // 渠道创建时间
+	UpdatedAt utils.MySQLTime `gorm:"column:updated_at;not null" json:"updated_at"` // 渠道信息最后更新时间
+	DeletedAt gorm.DeletedAt  `gorm:"column:deleted_at" json:"deleted_at"`          // 渠道删除时间
 }
 
 // TableName 表名

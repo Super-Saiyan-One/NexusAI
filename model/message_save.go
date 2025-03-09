@@ -36,7 +36,7 @@ type MessageSave struct {
 	ErrorType     string `gorm:"column:error_type;size:50" json:"error_type"`                          // 错误类型
 	ErrorInfo     string `gorm:"column:error_info;type:text" json:"error_info"`                        // 错误信息
 
-	CreatedAt utils.MySQLTime `gorm:"column:created_at;index;not null" json:"created_at"`
+	CreatedAt utils.MySQLTime `gorm:"column:created_at;not null" json:"created_at"`
 	UpdatedAt utils.MySQLTime `gorm:"column:updated_at;not null" json:"updated_at"`
 	DeletedAt gorm.DeletedAt  `gorm:"column:deleted_at" json:"deleted_at"`
 }

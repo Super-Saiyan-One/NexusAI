@@ -42,6 +42,7 @@ func (r *modelGroupRepository) convertToDTO(model *model.ModelGroup) *dto.ModelG
 
 	var priceFactor dto.ModelGroupPriceFactor
 	var options dto.ModelGroupOptions
+	var models dto.ModelGroupModels
 
 	if err := model.ModelGroupPriceFactor.ToStruct(&priceFactor); err != nil {
 		utils.SysError("解析价格系数失败:" + err.Error())
@@ -51,12 +52,17 @@ func (r *modelGroupRepository) convertToDTO(model *model.ModelGroup) *dto.ModelG
 		utils.SysError("解析配置选项失败:" + err.Error())
 	}
 
+	if err := model.ModelGroupModels.ToStruct(&models); err != nil {
+		utils.SysError("解析模型组模型失败:" + err.Error())
+	}
+
 	return &dto.ModelGroup{
 		ModelGroupID:          model.ModelGroupID,
 		ModelGroupName:        model.ModelGroupName,
 		ModelGroupDescription: model.ModelGroupDescription,
 		ModelGroupPriceFactor: priceFactor,
 		ModelGroupOptions:     options,
+		ModelGroupModels:      models,
 		CreatedAt:             model.CreatedAt,
 		UpdatedAt:             model.UpdatedAt,
 		DeletedAt:             utils.FromDeletedAt(model.DeletedAt),
@@ -79,12 +85,18 @@ func (r *modelGroupRepository) convertToModel(dto *dto.ModelGroup) (*model.Model
 		return nil, fmt.Errorf("转换配置选项失败: %w", err)
 	}
 
+	modelsJSON, err := common.FromStruct(dto.ModelGroupModels)
+	if err != nil {
+		return nil, fmt.Errorf("转换模型组模型失败: %w", err)
+	}
+
 	return &model.ModelGroup{
 		ModelGroupID:          dto.ModelGroupID,
 		ModelGroupName:        dto.ModelGroupName,
 		ModelGroupDescription: dto.ModelGroupDescription,
 		ModelGroupPriceFactor: priceFactorJSON,
 		ModelGroupOptions:     optionsJSON,
+		ModelGroupModels:      modelsJSON,
 		CreatedAt:             dto.CreatedAt,
 		UpdatedAt:             dto.UpdatedAt,
 		DeletedAt:             utils.ToDeletedAt(dto.DeletedAt),
@@ -282,6 +294,9 @@ func (r *modelGroupRepository) Benchmark(count int) error {
 				DefaultLevel:          rand.Intn(3) + 1,
 				APIDiscount:           float64(rand.Intn(50)+50) / 100,
 				APIDiscountExpireAt:   utils.MySQLTime(time.Now().Add(time.Duration(rand.Intn(30)) * time.Hour)),
+			},
+			ModelGroupModels: dto.ModelGroupModels{
+				Models: []string{},
 			},
 		}
 

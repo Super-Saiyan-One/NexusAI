@@ -12,6 +12,7 @@ type ModelService interface {
 	ModelUpdate(repo repository.ModelRepository, model *dto.Model) (*dto.Model, error)
 	ModelSearch(repo repository.ModelRepository, modelSearch *modelDto.ModelSearchRequest) ([]*dto.Model, error)
 	ModelDelete(repo repository.ModelRepository, modelID string) error
+	ModelAvailableChannels(repo repository.ModelRepository, modelID string) ([]*dto.Channel, error)
 }
 
 type modelService struct{}
@@ -60,4 +61,10 @@ func (ms *modelService) ModelDelete(repo repository.ModelRepository, modelID str
 		return errors.New("model already deleted")
 	}
 	return repo.Delete(modelID)
+}
+
+// ModelAvailableChannels 获取模型可用渠道
+func (ms *modelService) ModelAvailableChannels(repo repository.ModelRepository, modelID string) ([]*dto.Channel, error) {
+	// TODO: 获取模型可用渠道
+	return []*dto.Channel{}, nil
 }

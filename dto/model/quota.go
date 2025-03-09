@@ -9,11 +9,18 @@ type QuotaOptions struct {
 	QuotaRemark string `json:"quota_remark"` // 配额备注
 }
 
+type QuotaType string
+
+const (
+	QuotaTypeTopup QuotaType = "topup"
+	QuotaTypeGift  QuotaType = "gift"
+)
+
 // Quota DTO结构
 type Quota struct {
 	QuotaID         string           `json:"quota_id"`             // 配额记录唯一标识
 	UserID          string           `json:"user_id"`              // 关联的用户ID
-	QuotaType       string           `json:"quota_type"`           // 配额类型
+	QuotaType       QuotaType        `json:"quota_type"`           // 配额类型
 	ValidPeriod     int              `json:"valid_period"`         // 有效期
 	Status          int8             `json:"status"`               // 配额状态
 	QuotaAmount     float64          `json:"quota_amount"`         // 配额总金额

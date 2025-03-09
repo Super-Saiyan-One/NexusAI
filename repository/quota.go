@@ -24,6 +24,7 @@ type QuotaRepository interface {
 	ListByStatus(status int8, page, pageSize int) ([]*dto.Quota, int64, error)
 	ListByType(quotaType string, page, pageSize int) ([]*dto.Quota, int64, error)
 	Benchmark(count int) error
+	ListAvailableQuotas(userID string) ([]*dto.Quota, error)
 }
 
 type quotaRepository struct {
@@ -49,7 +50,7 @@ func (r *quotaRepository) convertToDTO(model *model.Quota) *dto.Quota {
 	return &dto.Quota{
 		QuotaID:         model.QuotaID,
 		UserID:          model.UserID,
-		QuotaType:       model.QuotaType,
+		QuotaType:       dto.QuotaType(model.QuotaType),
 		ValidPeriod:     model.ValidPeriod,
 		Status:          model.Status,
 		QuotaAmount:     model.QuotaAmount,
@@ -79,7 +80,7 @@ func (r *quotaRepository) convertToModel(dto *dto.Quota) (*model.Quota, error) {
 	return &model.Quota{
 		QuotaID:         dto.QuotaID,
 		UserID:          dto.UserID,
-		QuotaType:       dto.QuotaType,
+		QuotaType:       string(dto.QuotaType),
 		ValidPeriod:     dto.ValidPeriod,
 		Status:          dto.Status,
 		QuotaAmount:     dto.QuotaAmount,
@@ -240,7 +241,7 @@ func (r *quotaRepository) Benchmark(count int) error {
 		testQuota := &dto.Quota{
 			QuotaID:     utils.GenerateRandomUUID(12),
 			UserID:      utils.GenerateRandomUUID(12),
-			QuotaType:   []string{"recharge", "gift", "reward"}[rand.Intn(3)],
+			QuotaType:   dto.QuotaTypeTopup,
 			ValidPeriod: rand.Intn(365) + 1,
 			Status:      int8(rand.Intn(3) + 1),
 			QuotaAmount: float64(rand.Intn(10000)) / 100,
@@ -285,4 +286,31 @@ func (r *quotaRepository) Benchmark(count int) error {
 	duration := time.Since(startTime)
 	utils.SysInfo("基准测试完成，总耗时: " + duration.String() + ", 平均每组操作耗时: " + (duration / time.Duration(count)).String())
 	return nil
+}
+
+// ListAvailableQuotas 获取用户可用的配额记录列表（按类型和创建时间排序）
+func (r *quotaRepository) ListAvailableQuotas(userID string) ([]*dto.Quota, error) {
+	var quotas []model.Quota
+
+	// 查询条件：
+	// 1. 指定用户
+	// 2. 可用额度大于0（剩余额度-冻结额度>0 并且 状态为正常 并且 过期时间大于当前时间或者为空）
+	// 3. 过期时间早的优先
+	// 4. 按类型排序（gift优先, topup次之）
+	// 5. 按创建时间排序
+	err := r.db.Where("user_id = ? AND (remaining_amount - frozen_amount) > 0 AND status = 1 AND (expire_time > NOW() OR expire_time IS NULL)", userID).
+		Order("CASE WHEN quota_type = 'gift' THEN 0 ELSE 1 END, expire_time ASC, created_at ASC").
+		Find(&quotas).Error
+
+	if err != nil {
+		return nil, fmt.Errorf("查询用户可用配额失败: %w", err)
+	}
+
+	// 转换为DTO
+	dtoList := make([]*dto.Quota, len(quotas))
+	for i, q := range quotas {
+		dtoList[i] = r.convertToDTO(&q)
+	}
+
+	return dtoList, nil
 }

@@ -19,5 +19,7 @@ func SetupUserGroupRouter(server *gin.Engine) {
 		userGroupRouter.POST("/update", userGroupController.UserGroupUpdate)
 		userGroupRouter.GET("/search", userGroupController.UserGroupSearch)
 		userGroupRouter.DELETE("/delete/:user_group_id", userGroupController.UserGroupDelete)
+		userGroupRouter.GET("/available_models/:user_group_id", userGroupController.UserGroupAvailableModels)
+		userGroupRouter.GET("/available_channels/:user_group_id", userGroupController.UserGroupAvailableChannels)
 	}
 }

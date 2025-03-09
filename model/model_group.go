@@ -15,10 +15,11 @@ type ModelGroup struct {
 
 	ModelGroupPriceFactor common.JSON `gorm:"column:model_group_price_factor;type:json" json:"model_group_price_factor"` // 模型组价格系数
 	ModelGroupOptions     common.JSON `gorm:"column:model_group_options;type:json" json:"model_group_options"`           // 模型组配置
+	ModelGroupModels      common.JSON `gorm:"column:model_group_models;type:json" json:"model_group_models"`             // 模型组模型
 
-	CreatedAt utils.MySQLTime `gorm:"column:created_at;index;not null" json:"created_at"` // 模型组创建时间
-	UpdatedAt utils.MySQLTime `gorm:"column:updated_at;not null" json:"updated_at"`       // 模型组信息最后更新时间
-	DeletedAt gorm.DeletedAt  `gorm:"column:deleted_at" json:"deleted_at"`                // 模型组删除时间
+	CreatedAt utils.MySQLTime `gorm:"column:created_at;not null" json:"created_at"` // 模型组创建时间
+	UpdatedAt utils.MySQLTime `gorm:"column:updated_at;not null" json:"updated_at"` // 模型组信息最后更新时间
+	DeletedAt gorm.DeletedAt  `gorm:"column:deleted_at" json:"deleted_at"`          // 模型组删除时间
 }
 
 func (ModelGroup) TableName() string {

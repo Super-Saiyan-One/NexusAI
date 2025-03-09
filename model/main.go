@@ -132,6 +132,7 @@ func Setup(db *gorm.DB) error {
 		&Payment{},           // 依赖 User
 		&MessageSave{},       // 依赖 User, Token, Model, Channel
 		&Billing{},           // 依赖 User
+		&TaskVideo{},         // 依赖 User, Token, Model, Channel
 	}
 
 	for _, table := range tertiaryTables {

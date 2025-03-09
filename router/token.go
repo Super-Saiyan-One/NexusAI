@@ -19,5 +19,10 @@ func SetupTokenRouter(server *gin.Engine) {
 		tokenRouter.POST("/update", tokenController.TokenUpdate)
 		tokenRouter.GET("/search", tokenController.TokenSearch)
 		tokenRouter.DELETE("/delete/:token_id", tokenController.TokenDelete)
+		tokenRouter.GET("/available_models/:token_id", tokenController.TokenAvailableModels)
+		tokenRouter.Use(middleware.RootVerifyMiddleware())
+		{
+			tokenRouter.GET("/available_channels/:token_id", tokenController.TokenAvailableChannels)
+		}
 	}
 }

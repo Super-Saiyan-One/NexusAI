@@ -19,6 +19,7 @@ type ChannelGroupController interface {
 	ChannelGroupUpdate(c *gin.Context)
 	ChannelGroupSearch(c *gin.Context)
 	ChannelGroupDelete(c *gin.Context)
+	ChannelGroupAvailableModels(c *gin.Context)
 }
 
 type channelGroupController struct {
@@ -138,4 +139,22 @@ func (cgc *channelGroupController) ChannelGroupDelete(c *gin.Context) {
 	}
 
 	utils.CommonSuccess(c, http.StatusOK, "Channel group deleted successfully", constant.SuccessTypeChannelGroupPrefix+"_delete", gin.H{"message": "Channel group deleted successfully"})
+}
+
+// ChannelGroupAvailableModels 获取渠道组可用模型
+func (cgc *channelGroupController) ChannelGroupAvailableModels(c *gin.Context) {
+	channelGroupID := c.Param("channel_group_id")
+	if channelGroupID == "" {
+		utils.CommonError(c, http.StatusBadRequest, "channel_group_id is required", constant.ErrorTypeChannelGroupPrefix+"_available_models")
+		return
+	}
+
+	channelGroupRepo := cgc.GetChannelGroupRepo()
+	models, err := cgc.service.ChannelGroupAvailableModels(channelGroupRepo, channelGroupID)
+	if err != nil {
+		utils.CommonError(c, http.StatusBadRequest, "Failed to get channel group available models: "+err.Error(), constant.ErrorTypeChannelGroupPrefix+"_available_models")
+		return
+	}
+
+	utils.CommonSuccess(c, http.StatusOK, "Channel group available models fetched successfully", constant.SuccessTypeChannelGroupPrefix+"_available_models", gin.H{"models": models})
 }

@@ -278,7 +278,7 @@ func (r *userRepository) Benchmark(count int) error {
 	for i := 0; i < count; i++ {
 		testUser := &dto.User{
 			UserID:   utils.GenerateRandomUUID(12),
-			Username: fmt.Sprintf("benchmark_user_%d", i),
+			Username: fmt.Sprintf("benchmark_user_%s", utils.GenerateRandomUUID(12)),
 			Email:    fmt.Sprintf("benchmark_%d%s@example.com", i, utils.GenerateRandomString(8)),
 			Phone:    fmt.Sprintf("1%010d", rand.Intn(10000000000)),
 			Password: utils.HashPassword(fmt.Sprintf("test%d", i)),

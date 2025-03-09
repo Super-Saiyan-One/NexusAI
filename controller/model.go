@@ -20,6 +20,7 @@ type ModelController interface {
 	ModelUpdate(c *gin.Context)
 	ModelSearch(c *gin.Context)
 	ModelDelete(c *gin.Context)
+	ModelAvailableChannels(c *gin.Context)
 }
 
 type modelController struct {
@@ -137,4 +138,22 @@ func (mc *modelController) ModelDelete(c *gin.Context) {
 	}
 
 	utils.CommonSuccess(c, http.StatusOK, "Model deleted successfully", constant.SuccessTypeModelPrefix+"_delete", gin.H{"message": "Model deleted successfully"})
+}
+
+// ModelAvailableChannels 获取模型可用渠道
+func (mc *modelController) ModelAvailableChannels(c *gin.Context) {
+	modelID := c.Param("model_id")
+	if modelID == "" {
+		utils.CommonError(c, http.StatusBadRequest, "model_id is required", constant.ErrorTypeModelPrefix+"_available_channels")
+		return
+	}
+
+	modelRepo := mc.GetModelRepo()
+	channels, err := mc.service.ModelAvailableChannels(modelRepo, modelID)
+	if err != nil {
+		utils.CommonError(c, http.StatusBadRequest, "Failed to get model available channels: "+err.Error(), constant.ErrorTypeModelPrefix+"_available_channels")
+		return
+	}
+
+	utils.CommonSuccess(c, http.StatusOK, "Model available channels fetched successfully", constant.SuccessTypeModelPrefix+"_available_channels", gin.H{"channels": channels})
 }

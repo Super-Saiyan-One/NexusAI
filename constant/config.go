@@ -1,6 +1,10 @@
 package constant
 
-import "time"
+import (
+	"nexus-ai/dto"
+	"os"
+	"time"
+)
 
 type UserIDKeyType string       // 基于string的UserIDKeyType，可以避免与其他库的冲突
 type RequestIDKeyType string    // 基于string的RequestIDKeyType，可以避免与其他库的冲突
@@ -48,10 +52,32 @@ const ( // 默认redis配置
 )
 
 const ( // 默认rabbitmq配置
-	RabbitMQDefaultHost     = "localhost" // 默认rabbitmq地址
-	RabbitMQDefaultPort     = "11003"     // 默认rabbitmq端口
-	RabbitMQDefaultUser     = "nexus"     // 默认rabbitmq用户
-	RabbitMQDefaultPassword = "nexus123"  // 默认rabbitmq密码
+	RabbitMQDefaultHost      = "localhost" // 默认rabbitmq地址
+	RabbitMQDefaultPort      = "11003"     // 默认rabbitmq端口
+	RabbitMQDefaultUser      = "nexus"     // 默认rabbitmq用户
+	RabbitMQDefaultPassword  = "nexus123"  // 默认rabbitmq密码
+	RabbitMQDefaultVHost     = "nexus"     // 默认rabbitmq虚拟主机
+	RabbitMQDefaultPanelPort = "11004"     // 默认rabbitmq面板端口
+
+	RabbitMQConnectionMaxRetries      = 5
+	RabbitMQConnectionRetryInterval   = 5 * time.Second
+	RabbitMQConnectionRequestTimeout  = 30 * time.Second
+	RabbitMQConnectionHeartbeatDelay  = 10 * time.Second
+	RabbitMQConnectionMaxChannels     = 1024
+	RabbitMQConnectionChannelPoolSize = 100
+	RabbitMQConnectionMaxFrameSize    = 131072 // 128KB
+	RabbitMQConnectionConsumerThreads = 4
+
+	RabbitMQMessageDefaultExchange    = "nexus.default"
+	RabbitMQMessageDelayedExchange    = "nexus.delayed"
+	RabbitMQMessageDefaultContentType = "application/json"
+	RabbitMQMessageDefaultExpiration  = 24 * time.Hour
+	RabbitMQMessageMaxMessageSize     = 1048576 // 1MB
+	RabbitMQMessagePrefetchCount      = 1
+	RabbitMQMessageReconnectInterval  = 5 * time.Second
+	RabbitMQMessageHealthCheckTimeout = 5 * time.Second
+
+	RabbitMQDefaultCustomerNum = 3
 )
 
 const (
@@ -93,6 +119,20 @@ const (
 	DefaultModelResponsePrice   = 1
 	DefaultModelCompletionPrice = 1
 	DefaultModelCachePrice      = 1
+)
+
+var (
+	DefaultModelVideoPrice = dto.VideoPrice{
+		"std": {"5": 1},
+		"pro": {"5": 3.5},
+		"diy": {"1920x1080 5": 10},
+	}
+	DefaultModelImagePrice = dto.ImagePrice{
+		"std":       1,
+		"pro":       3.5,
+		"1024x1024": 5,
+		"1920x1080": 10,
+	}
 )
 
 const (
@@ -150,10 +190,54 @@ var (
 	DefaultTokenDisableRateLimit = new(bool) // false by default
 )
 
-const (
-	SecretID  = "AKID1ta3HH3ndMs9CmAVnwrY3LQGvMacRZT9"
-	SecretKey = "aw3wa3IMCpFUWR9fx0oOnyufFcnGguyr"
-	Bucket    = "nexus-ai"
-	AppId     = "1304425019"
-	Region    = "ap-hongkong"
+var (
+	SecretID  string
+	SecretKey string
+	Bucket    string
+	AppId     string
+	Region    string
 )
+
+func LoadCosConfig() {
+	SecretID = getString(os.Getenv("COS_SECRET_ID"), "")
+	SecretKey = getString(os.Getenv("COS_SECRET_KEY"), "")
+	Bucket = getString(os.Getenv("COS_BUCKET"), "")
+	AppId = getString(os.Getenv("COS_APP_ID"), "")
+	Region = getString(os.Getenv("COS_REGION"), "")
+}
+
+var (
+	StripeKey           string
+	StripeWebhookSecret string
+	AlipayPriceID       string
+	CardPriceID         string
+	ServerAddress       string
+
+	StripeSuccessURL string
+	StripeCancelURL  string
+)
+
+func getString(value string, defaultValue string) string {
+	if value == "" {
+		return defaultValue
+	}
+	return value
+}
+
+func LoadStripeConfig() {
+	StripeKey = getString(os.Getenv("STRIPE_KEY"), "")
+	StripeWebhookSecret = getString(os.Getenv("STRIPE_WEBHOOK_SECRET"), "")
+	AlipayPriceID = getString(os.Getenv("ALIPAY_PRICE_ID"), "")
+	CardPriceID = getString(os.Getenv("CARD_PRICE_ID"), "")
+	ServerAddress = getString(os.Getenv("SERVER_ADDRESS"), "")
+	StripeSuccessURL = getString(os.Getenv("STRIPE_SUCCESS_URL"), "")
+	StripeCancelURL = getString(os.Getenv("STRIPE_CANCEL_URL"), "")
+}
+
+var (
+	CheckSensitiveText bool
+)
+
+func LoadCheckSensitive() {
+	CheckSensitiveText = getString(os.Getenv("CHECK_SENSITIVE_TEXT"), "false") == "true"
+}

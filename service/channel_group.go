@@ -12,6 +12,7 @@ type ChannelGroupService interface {
 	ChannelGroupUpdate(repo repository.ChannelGroupRepository, channelGroup *dto.ChannelGroup) (*dto.ChannelGroup, error)
 	ChannelGroupSearch(repo repository.ChannelGroupRepository, channelGroupSearch *channelGroupDto.ChannelGroupSearchRequest) ([]*dto.ChannelGroup, error)
 	ChannelGroupDelete(repo repository.ChannelGroupRepository, channelGroupID string) error
+	ChannelGroupAvailableModels(repo repository.ChannelGroupRepository, channelGroupID string) ([]*dto.Model, error)
 }
 
 type channelGroupService struct{}
@@ -60,4 +61,10 @@ func (cgs *channelGroupService) ChannelGroupDelete(repo repository.ChannelGroupR
 		return errors.New("channel group already deleted")
 	}
 	return repo.Delete(channelGroupID)
+}
+
+// ChannelGroupAvailableModels 获取渠道组可用模型
+func (cgs *channelGroupService) ChannelGroupAvailableModels(repo repository.ChannelGroupRepository, channelGroupID string) ([]*dto.Model, error) {
+	// TODO: 获取渠道组可用模型
+	return []*dto.Model{}, nil
 }

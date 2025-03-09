@@ -12,6 +12,8 @@ type UserGroupService interface {
 	UserGroupUpdate(repo repository.UserGroupRepository, userGroup *dto.UserGroup) (*dto.UserGroup, error)
 	UserGroupSearch(repo repository.UserGroupRepository, userGroupSearch *userGroupDto.UserGroupSearchRequest) ([]*dto.UserGroup, error)
 	UserGroupDelete(repo repository.UserGroupRepository, userGroupID string) error
+	UserGroupAvailableModels(repo repository.UserGroupRepository, userGroupID string) ([]*dto.Model, error)
+	UserGroupAvailableChannels(repo repository.UserGroupRepository, userGroupID string) ([]*dto.Channel, error)
 }
 
 type userGroupService struct{}
@@ -57,4 +59,18 @@ func (ugs *userGroupService) UserGroupDelete(repo repository.UserGroupRepository
 		return errors.New("user group already deleted")
 	}
 	return repo.Delete(userGroupID)
+}
+
+// UserGroupAvailableModels 获取用户组模型
+// user_group.extra_allowed_models 用户组额外允许的模型列表
+// user_group.priority_models 用户组优先使用的模型列表
+func (ugs *userGroupService) UserGroupAvailableModels(repo repository.UserGroupRepository, userGroupID string) ([]*dto.Model, error) {
+	// TODO: 获取用户组模型
+	return []*dto.Model{}, nil
+}
+
+// UserGroupAvailableChannels 获取用户组渠道
+func (ugs *userGroupService) UserGroupAvailableChannels(repo repository.UserGroupRepository, userGroupID string) ([]*dto.Channel, error) {
+	// TODO: 获取用户组渠道
+	return []*dto.Channel{}, nil
 }

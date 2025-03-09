@@ -12,6 +12,7 @@ services:
     environment:
       - GIN_MODE=release
       - BACKEND_PORT=10000
+      - ENV_PATH=/app/.env
 
       # MySQL 配置
       - MYSQL_HOST=nexus-mysql
@@ -33,6 +34,7 @@ services:
       - RABBITMQ_PORT=5672
       - RABBITMQ_USER=nexus
       - RABBITMQ_PASSWORD=nexus123
+      - RABBITMQ_PANEL_PORT=15672
     deploy:
       resources:
         limits:
@@ -126,11 +128,14 @@ services:
       start_period: 10s
 
   rabbitmq:
-    image: rabbitmq:3-management
+    build:
+      context: .
+      dockerfile: Dockerfile-Rabbitmq
     container_name: nexus-rabbitmq
     restart: unless-stopped
     ports:
-      - "11003:15672"   # 管理界面端口
+      - "11003:5672"    # AMQP 端口
+      - "11004:15672"   # 管理界面端口
     expose:
       - "5672"          # AMQP 端口
       - "15672"         # 管理界面端口

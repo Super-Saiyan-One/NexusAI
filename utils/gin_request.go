@@ -22,7 +22,9 @@ func GetRequestBody(c *gin.Context) ([]byte, error) {
 	}
 	_ = c.Request.Body.Close()                  // 关闭请求体
 	c.Set(constant.KeyRequestBody, requestBody) // 将请求体存储在上下文中
-	return requestBody.([]byte), nil            // 返回请求体
+
+	c.Request.Body = io.NopCloser(bytes.NewBuffer(requestBody.([]byte))) // 将请求体重新设置为io.NopCloser
+	return requestBody.([]byte), nil                                     // 返回请求体
 }
 
 func UnmarshalRequestBody(c *gin.Context, v any) error { // 解析请求体为指定类型v

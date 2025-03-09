@@ -19,5 +19,6 @@ func SetupModelRouter(server *gin.Engine) {
 		modelRouter.POST("/update", modelController.ModelUpdate)
 		modelRouter.GET("/search", modelController.ModelSearch)
 		modelRouter.DELETE("/delete/:model_id", modelController.ModelDelete)
+		modelRouter.GET("/available_channels/:model_id", modelController.ModelAvailableChannels)
 	}
 }

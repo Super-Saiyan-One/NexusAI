@@ -19,6 +19,8 @@ type UserGroupController interface {
 	UserGroupUpdate(c *gin.Context)
 	UserGroupSearch(c *gin.Context)
 	UserGroupDelete(c *gin.Context)
+	UserGroupAvailableModels(c *gin.Context)
+	UserGroupAvailableChannels(c *gin.Context)
 }
 
 type userGroupController struct {
@@ -138,4 +140,38 @@ func (ugc *userGroupController) UserGroupDelete(c *gin.Context) {
 	}
 
 	utils.CommonSuccess(c, http.StatusOK, "User group deleted successfully", constant.SuccessTypeUserGroupPrefix+"_delete", gin.H{"message": "User group deleted successfully"})
+}
+
+func (ugc *userGroupController) UserGroupAvailableModels(c *gin.Context) {
+	userGroupID := c.Param("user_group_id")
+	if userGroupID == "" {
+		utils.CommonError(c, http.StatusBadRequest, "user_group_id is required", constant.ErrorTypeUserGroupPrefix+"_models")
+		return
+	}
+
+	userGroupRepo := ugc.GetUserGroupRepo()
+	models, err := ugc.service.UserGroupAvailableModels(userGroupRepo, userGroupID)
+	if err != nil {
+		utils.CommonError(c, http.StatusBadRequest, "Failed to get user group models: "+err.Error(), constant.ErrorTypeUserGroupPrefix+"_models")
+		return
+	}
+
+	utils.CommonSuccess(c, http.StatusOK, "User group models fetched successfully", constant.SuccessTypeUserGroupPrefix+"_models", gin.H{"models": models})
+}
+
+func (ugc *userGroupController) UserGroupAvailableChannels(c *gin.Context) {
+	userGroupID := c.Param("user_group_id")
+	if userGroupID == "" {
+		utils.CommonError(c, http.StatusBadRequest, "user_group_id is required", constant.ErrorTypeUserGroupPrefix+"_channels")
+		return
+	}
+
+	userGroupRepo := ugc.GetUserGroupRepo()
+	channels, err := ugc.service.UserGroupAvailableChannels(userGroupRepo, userGroupID)
+	if err != nil {
+		utils.CommonError(c, http.StatusBadRequest, "Failed to get user group channels: "+err.Error(), constant.ErrorTypeUserGroupPrefix+"_channels")
+		return
+	}
+
+	utils.CommonSuccess(c, http.StatusOK, "User group channels fetched successfully", constant.SuccessTypeUserGroupPrefix+"_channels", gin.H{"channels": channels})
 }

@@ -1,15 +1,18 @@
 package model
 
 import (
+	"nexus-ai/dto"
 	"nexus-ai/utils"
 )
 
 // ModelGroupPriceFactor 模型组价格系数
 type ModelGroupPriceFactor struct {
-	RequestPriceFactor    float64 `json:"request_price_factor"`    // 请求价格系数
-	ResponsePriceFactor   float64 `json:"response_price_factor"`   // 响应价格系数
-	CompletionPriceFactor float64 `json:"completion_price_factor"` // 补全价格系数
-	CachePriceFactor      float64 `json:"cache_price_factor"`      // 缓存价格系数
+	RequestPriceFactor    float64        `json:"request_price_factor"`    // 请求价格系数
+	ResponsePriceFactor   float64        `json:"response_price_factor"`   // 响应价格系数
+	CompletionPriceFactor float64        `json:"completion_price_factor"` // 补全价格系数
+	CachePriceFactor      float64        `json:"cache_price_factor"`      // 缓存价格系数
+	VideoPriceFactor      dto.VideoPrice `json:"video_price_factor"`      // 视频价格系数
+	ImagePriceFactor      dto.ImagePrice `json:"image_price_factor"`      // 图片价格系数
 }
 
 // ModelGroupOptions 模型组配置选项
@@ -20,6 +23,11 @@ type ModelGroupOptions struct {
 	APIDiscountExpireAt   utils.MySQLTime `json:"api_discount_expire_at"`  // API折扣过期时间
 }
 
+// 模型组模型
+type ModelGroupModels struct {
+	Models []string `json:"models"` // 模型组模型
+}
+
 // ModelGroup DTO结构
 type ModelGroup struct {
 	ModelGroupID          string                `json:"model_group_id"`           // 模型组唯一标识
@@ -27,6 +35,7 @@ type ModelGroup struct {
 	ModelGroupDescription string                `json:"model_group_description"`  // 模型组描述
 	ModelGroupPriceFactor ModelGroupPriceFactor `json:"model_group_price_factor"` // 模型组价格系数
 	ModelGroupOptions     ModelGroupOptions     `json:"model_group_options"`      // 模型组配置
+	ModelGroupModels      ModelGroupModels      `json:"model_group_models"`       // 模型组模型
 	CreatedAt             utils.MySQLTime       `json:"created_at"`               // 创建时间
 	UpdatedAt             utils.MySQLTime       `json:"updated_at"`               // 更新时间
 	DeletedAt             *utils.MySQLTime      `json:"deleted_at,omitempty"`     // 删除时间

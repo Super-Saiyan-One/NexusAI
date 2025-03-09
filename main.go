@@ -7,24 +7,35 @@ import (
 	"nexus-ai/constant"
 	"nexus-ai/middleware"
 	"nexus-ai/model"
+	"nexus-ai/mq"
 	"nexus-ai/mysql"
 	"nexus-ai/redis"
 	"nexus-ai/repository"
 	"nexus-ai/test"
+	"testing"
 
 	"nexus-ai/router"
 	"nexus-ai/utils"
 
 	"os"
 	"strconv"
+	"time"
 
 	"github.com/gin-gonic/gin"
+	"github.com/joho/godotenv"
 )
 
 func main() {
+	envPath := utils.GetEnv("ENV_PATH", ".env")
+	err := godotenv.Load(envPath)
+	if err != nil {
+		utils.FatalLog("Failed to load .env file: " + err.Error())
+	}
+
 	// 解析命令行参数
 	redisTest := flag.Int("redis", 0, "是否执行Redis基准测试")
 	mysqlTest := flag.Int("mysql", 0, "是否执行MySQL基准测试")
+	rabbitmqTest := flag.Int("rabbitmq", 0, "是否执行RabbitMQ基准测试")
 	flag.Parse()
 
 	// 初始化服务日志
@@ -58,6 +69,21 @@ func main() {
 		}
 	}()
 
+	// 初始化RabbitMQ
+	for i := 1; i > 0; i-- {
+		utils.SysInfo(fmt.Sprintf("等待 %d 秒以初始化 RabbitMQ...", i))
+		time.Sleep(1 * time.Second) // 每秒打印一次
+	}
+	if err := mq.Setup(); err != nil {
+		utils.FatalLog("RabbitMQ | " + err.Error())
+	}
+	utils.SysInfo("RabbitMQ setup completed")
+	defer func() {
+		if err := mq.Shutdown(); err != nil {
+			utils.SysError("RabbitMQ | " + err.Error())
+		}
+	}()
+
 	// 执行MySQL基准测试
 	if *mysqlTest > 0 {
 		utils.SysInfo("执行MySQL基准测试")
@@ -77,6 +103,14 @@ func main() {
 		} else {
 			utils.SysInfo("Redis benchmarks completed successfully")
 		}
+	}
+
+	// 执行RabbitMQ基准测试
+	if *rabbitmqTest > 0 {
+		utils.SysInfo("执行RabbitMQ基准测试")
+		b := &testing.B{N: *rabbitmqTest}
+		mq.BenchmarkPublishConsume(b)
+		utils.SysInfo("RabbitMQ基准测试完成")
 	}
 
 	// 设置gin模式
@@ -106,7 +140,7 @@ func main() {
 
 	backendPort, _ := strconv.Atoi(utils.GetEnv("BACKEND_PORT", constant.BackendPort))
 	utils.SysInfo("Server starting on port " + strconv.Itoa(backendPort))
-	err := server.Run(":" + strconv.Itoa(backendPort))
+	err = server.Run(":" + strconv.Itoa(backendPort))
 	if err != nil {
 		utils.FatalLog("Failed to start HTTP server: " + err.Error())
 	}

@@ -27,6 +27,8 @@ func SetupUserRouter(server *gin.Engine) {
 			authRouter.POST("/logout", userController.UserLogout)
 			authRouter.POST("/update", userController.UserUpdate)
 			authRouter.POST("/password", userController.UserPassword)
+			authRouter.GET("/available_models", userController.UserAvailableModels)
+			authRouter.GET("/available_channels", userController.UserAvailableChannels)
 		}
 	}
 }

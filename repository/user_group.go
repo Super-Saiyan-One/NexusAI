@@ -44,6 +44,8 @@ func (r *userGroupRepository) convertToDTO(model *model.UserGroup) *dto.UserGrou
 
 	var priceFactor dto.UserGroupPriceFactor
 	var options dto.UserGroupOptions
+	var users dto.UserGroupUsers
+	var models dto.UserGroupModels
 
 	if err := model.UserGroupPriceFactor.ToStruct(&priceFactor); err != nil {
 		utils.SysError("解析价格系数失败:" + err.Error())
@@ -53,12 +55,22 @@ func (r *userGroupRepository) convertToDTO(model *model.UserGroup) *dto.UserGrou
 		utils.SysError("解析配置选项失败:" + err.Error())
 	}
 
+	if err := model.UserGroupUsers.ToStruct(&users); err != nil {
+		utils.SysError("解析用户组用户失败:" + err.Error())
+	}
+
+	if err := model.UserGroupModels.ToStruct(&models); err != nil {
+		utils.SysError("解析用户组模型失败:" + err.Error())
+	}
+
 	return &dto.UserGroup{
 		UserGroupID:          model.UserGroupID,
 		UserGroupName:        model.UserGroupName,
 		UserGroupDescription: model.UserGroupDescription,
 		UserGroupPriceFactor: priceFactor,
 		UserGroupOptions:     options,
+		UserGroupUsers:       users,
+		UserGroupModels:      models,
 		CreatedAt:            model.CreatedAt,
 		UpdatedAt:            model.UpdatedAt,
 		DeletedAt:            utils.FromDeletedAt(model.DeletedAt),
@@ -81,12 +93,24 @@ func (r *userGroupRepository) convertToModel(dto *dto.UserGroup) (*model.UserGro
 		return nil, fmt.Errorf("转换配置选项失败: %w", err)
 	}
 
+	usersJSON, err := common.FromStruct(dto.UserGroupUsers)
+	if err != nil {
+		return nil, fmt.Errorf("转换用户组用户失败: %w", err)
+	}
+
+	modelsJSON, err := common.FromStruct(dto.UserGroupModels)
+	if err != nil {
+		return nil, fmt.Errorf("转换用户组模型失败: %w", err)
+	}
+
 	return &model.UserGroup{
 		UserGroupID:          dto.UserGroupID,
 		UserGroupName:        dto.UserGroupName,
 		UserGroupDescription: dto.UserGroupDescription,
 		UserGroupPriceFactor: priceFactorJSON,
 		UserGroupOptions:     optionsJSON,
+		UserGroupUsers:       usersJSON,
+		UserGroupModels:      modelsJSON,
 		CreatedAt:            dto.CreatedAt,
 		UpdatedAt:            dto.UpdatedAt,
 		DeletedAt:            utils.ToDeletedAt(dto.DeletedAt),
@@ -236,7 +260,7 @@ func (r *userGroupRepository) Benchmark(count int) error {
 		// 创建测试用户组
 		testGroup := &dto.UserGroup{
 			UserGroupID:          utils.GenerateRandomUUID(12),
-			UserGroupName:        fmt.Sprintf("benchmark_group_%d", i),
+			UserGroupName:        fmt.Sprintf("benchmark_group_%s", utils.GenerateRandomUUID(12)),
 			UserGroupDescription: "基准测试用户组",
 			UserGroupPriceFactor: dto.UserGroupPriceFactor{
 				RequestPriceFactor:    float64(rand.Intn(50)+50) / 100,
@@ -250,6 +274,12 @@ func (r *userGroupRepository) Benchmark(count int) error {
 				ExtraAllowedModels:    []string{"gpt-3.5-turbo", "gpt-4"},
 				ExtraAllowedChannels:  []string{"openai", "anthropic"},
 				APIDiscount:           float64(rand.Intn(50)+50) / 100,
+			},
+			UserGroupUsers: dto.UserGroupUsers{
+				Users: []string{},
+			},
+			UserGroupModels: dto.UserGroupModels{
+				Models: []string{},
 			},
 		}
 

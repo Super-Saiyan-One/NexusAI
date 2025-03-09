@@ -1,6 +1,7 @@
 package model
 
 import (
+	"nexus-ai/dto"
 	"nexus-ai/utils"
 )
 
@@ -12,10 +13,12 @@ type ChannelModels struct {
 
 // ChannelPriceFactor 渠道价格系数
 type ChannelPriceFactor struct {
-	RequestPriceFactor    float64 `json:"request_price_factor"`    // 请求价格系数
-	ResponsePriceFactor   float64 `json:"response_price_factor"`   // 响应价格系数
-	CompletionPriceFactor float64 `json:"completion_price_factor"` // 补全价格系数
-	CachePriceFactor      float64 `json:"cache_price_factor"`      // 缓存价格系数
+	RequestPriceFactor    float64        `json:"request_price_factor"`    // 请求价格系数
+	ResponsePriceFactor   float64        `json:"response_price_factor"`   // 响应价格系数
+	CompletionPriceFactor float64        `json:"completion_price_factor"` // 补全价格系数
+	CachePriceFactor      float64        `json:"cache_price_factor"`      // 缓存价格系数
+	VideoPriceFactor      dto.VideoPrice `json:"video_price_factor"`      // 视频价格系数
+	ImagePriceFactor      dto.ImagePrice `json:"image_price_factor"`      // 图片价格系数
 }
 
 // UpstreamOptions 上游服务配置
@@ -54,7 +57,7 @@ type RateLimit struct {
 
 // ModelMapping 模型映射配置
 type ModelMapping struct {
-	MappingModels []string `json:"mapping_models"` // 模型映射列表
+	MappingModels map[string][]string `json:"mapping_models"` // 模型映射列表
 }
 
 // TestModels 测试模型配置

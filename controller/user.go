@@ -23,6 +23,8 @@ type UserController interface {
 	UserLogout(c *gin.Context)
 	UserUpdate(c *gin.Context)
 	UserPassword(c *gin.Context)
+	UserAvailableModels(c *gin.Context)
+	UserAvailableChannels(c *gin.Context)
 }
 
 type userController struct {
@@ -201,4 +203,28 @@ func (uc *userController) UserPassword(c *gin.Context) {
 	}
 
 	utils.CommonSuccess(c, http.StatusOK, "Password updated successfully", constant.SuccessTypeUserPrefix+"_update_password", gin.H{})
+}
+
+// UserAvailableModels 获取用户可用模型
+func (uc *userController) UserAvailableModels(c *gin.Context) {
+	userID := c.GetString(string(constant.UserIDKey))
+	userRepo := uc.GetUserRepo()
+	models, err := uc.service.UserAvailableModels(userRepo, userID)
+	if err != nil {
+		utils.CommonError(c, http.StatusBadRequest, "Failed to get user available models: "+err.Error(), constant.ErrorTypeUserPrefix+"_available_models")
+		return
+	}
+	utils.CommonSuccess(c, http.StatusOK, "User available models fetched successfully", constant.SuccessTypeUserPrefix+"_available_models", gin.H{"models": models})
+}
+
+// UserAvailableChannels 获取用户可用渠道
+func (uc *userController) UserAvailableChannels(c *gin.Context) {
+	userID := c.GetString(string(constant.UserIDKey))
+	userRepo := uc.GetUserRepo()
+	channels, err := uc.service.UserAvailableChannels(userRepo, userID)
+	if err != nil {
+		utils.CommonError(c, http.StatusBadRequest, "Failed to get user available channels: "+err.Error(), constant.ErrorTypeUserPrefix+"_available_channels")
+		return
+	}
+	utils.CommonSuccess(c, http.StatusOK, "User available channels fetched successfully", constant.SuccessTypeUserPrefix+"_available_channels", gin.H{"channels": channels})
 }

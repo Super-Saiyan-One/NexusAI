@@ -2,8 +2,10 @@ package service
 
 import (
 	"errors"
+	"fmt"
 	userDto "nexus-ai/dto"
 	dto "nexus-ai/dto/model"
+	"nexus-ai/model"
 	"nexus-ai/repository"
 	"nexus-ai/utils"
 )
@@ -16,6 +18,8 @@ type UserService interface {
 	UserLogout(repo repository.UserRepository, userID string, accessToken, refreshToken string) error
 	UserUpdate(repo repository.UserRepository, user *dto.User) (*dto.User, error)
 	UserPassword(repo repository.UserRepository, userID string, oldPassword, newPassword string) error
+	UserAvailableModels(repo repository.UserRepository, userID string) ([]*dto.Model, error)
+	UserAvailableChannels(repo repository.UserRepository, userID string) ([]*dto.Channel, error)
 }
 
 type userService struct{}
@@ -138,5 +142,35 @@ func (us *userService) UserPassword(repo repository.UserRepository, userID strin
 		return err
 	}
 
+	return nil
+}
+
+// UserAvailableModels 获取用户可用模型
+func (us *userService) UserAvailableModels(repo repository.UserRepository, userID string) ([]*dto.Model, error) {
+	// TODO: 获取用户可用模型
+	return []*dto.Model{}, nil
+}
+
+// UserAvailableChannels 获取用户可用渠道
+func (us *userService) UserAvailableChannels(repo repository.UserRepository, userID string) ([]*dto.Channel, error) {
+	// TODO: 获取用户可用渠道
+	return []*dto.Channel{}, nil
+}
+
+func getUser(userID string) (*dto.User, error) {
+	userRepo := repository.NewUserRepository(model.GetDB())
+	user, err := userRepo.GetByID(userID)
+	if err != nil {
+		return nil, fmt.Errorf("failed to get user: %w", err)
+	}
+	return user, nil
+}
+
+func updateUser(user *dto.User) error {
+	userRepo := repository.NewUserRepository(model.GetDB())
+	_, err := userRepo.Update(user)
+	if err != nil {
+		return fmt.Errorf("failed to update user: %w", err)
+	}
 	return nil
 }

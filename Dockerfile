@@ -30,6 +30,7 @@ WORKDIR /app
 
 # 从builder阶段复制编译好的应用
 COPY --from=builder /app/main .
+COPY .env /app/.env
 
 # 创建日志目录
 RUN mkdir -p /app/logs && chmod 777 /app/logs
@@ -38,4 +39,4 @@ RUN mkdir -p /app/logs && chmod 777 /app/logs
 EXPOSE 10000
 
 # 运行应用
-CMD ["./main", "--mysql=10"] 
+CMD ["./main", "--mysql=10", "--rabbitmq=10"] 

@@ -20,11 +20,11 @@ func ChannelDistributeMiddleware() func(c *gin.Context) {
 		availableChannelsMap, availableChannels := repository.GetAvailableChannels(requestModel, token)
 		if len(tokenExtraAllowedChannels) > 0 { // 如果令牌额外允许的渠道列表不为空 与可用渠道列表合并
 			for _, extraAllowedChannelID := range tokenExtraAllowedChannels {
-				extraAllowedChannelLevel, err := repository.GetDefaultLevelByChannelID(extraAllowedChannelID)
-				if err != nil {
-					continue
-				}
 				if _, ok := availableChannelsMap[extraAllowedChannelID]; !ok { // 如果当前渠道不在可用渠道列表中
+					extraAllowedChannelLevel, err := repository.GetDefaultLevelByChannelID(extraAllowedChannelID)
+					if err != nil {
+						continue
+					}
 					availableChannelsMap[extraAllowedChannelID] = extraAllowedChannelLevel
 					availableChannels = append(availableChannels, repository.AvailableChannel{
 						ChannelID:         extraAllowedChannelID,
@@ -33,8 +33,8 @@ func ChannelDistributeMiddleware() func(c *gin.Context) {
 				}
 			}
 		}
+		priorityChannels := make([]repository.AvailableChannel, 0)
 		if len(tokenPriorityChannels) > 0 { // 如果令牌优先使用的渠道列表不为空 从可用渠道中获取优先使用的渠道
-			priorityChannels := make([]repository.AvailableChannel, 0)
 			for _, priorityChannelID := range tokenPriorityChannels {
 				if _, ok := availableChannelsMap[priorityChannelID]; ok {
 					priorityChannels = append(priorityChannels, repository.AvailableChannel{
@@ -43,9 +43,14 @@ func ChannelDistributeMiddleware() func(c *gin.Context) {
 					})
 				}
 			}
-			availableChannels = priorityChannels
 		}
-		selectedChannel, err := repository.SelectChannel(availableChannels)
+		var selectedChannel *dto.Channel
+		var err error
+		if len(priorityChannels) > 0 { // 如果优先渠道列表不为空 从优先渠道列表中选择渠道
+			selectedChannel, err = repository.SelectChannel(priorityChannels)
+		} else { // 如果优先渠道列表为空 从可用渠道列表中选择渠道
+			selectedChannel, err = repository.SelectChannel(availableChannels)
+		}
 		if err != nil {
 			utils.AbortWhenChannelDistributeFailed(c, http.StatusInternalServerError, err.Error())
 			return

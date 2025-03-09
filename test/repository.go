@@ -20,6 +20,7 @@ func TestRepository(num int) {
 	TestQuotaRepository(num)
 	TestBillingRepository(num)
 	TestMessageSaveRepository(num)
+	TestTaskVideoRepository(num)
 	TestGatewayLogRepository(num)
 	TestMasterLogRepository(num)
 	TestMasterMySQLLogRepository(num)
@@ -92,6 +93,11 @@ func TestBillingRepository(num int) {
 func TestMessageSaveRepository(num int) {
 	messageSaveRepo := repository.NewMessageSaveRepository(model.GetDB())
 	messageSaveRepo.Benchmark(num)
+}
+
+func TestTaskVideoRepository(num int) {
+	taskVideoRepo := repository.NewTaskVideoRepository(model.GetDB())
+	taskVideoRepo.Benchmark(num)
 }
 
 func TestGatewayLogRepository(num int) {

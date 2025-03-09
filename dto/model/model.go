@@ -1,15 +1,18 @@
 package model
 
 import (
+	"nexus-ai/dto"
 	"nexus-ai/utils"
 )
 
 // ModelPrice 模型价格配置
 type ModelPrice struct {
-	RequestPrice    float64 `json:"request_price"`    // 请求价格
-	ResponsePrice   float64 `json:"response_price"`   // 响应价格
-	CompletionPrice float64 `json:"completion_price"` // 补全价格
-	CachePrice      float64 `json:"cache_price"`      // 缓存价格
+	RequestPrice    float64        `json:"request_price"`    // 请求价格
+	ResponsePrice   float64        `json:"response_price"`   // 响应价格
+	CompletionPrice float64        `json:"completion_price"` // 补全价格
+	CachePrice      float64        `json:"cache_price"`      // 缓存价格
+	VideoPrice      dto.VideoPrice `json:"video_price"`      // 视频价格
+	ImagePrice      dto.ImagePrice `json:"image_price"`      // 图片价格
 }
 
 // ModelAlias 模型映射配置

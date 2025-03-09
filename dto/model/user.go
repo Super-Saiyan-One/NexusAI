@@ -46,6 +46,7 @@ type UserQuota struct {
 	FrozenQuota     float64         `json:"frozen_quota"`     // 冻结配额
 	GiftQuota       float64         `json:"gift_quota"`       // 赠送配额
 	LeftQuota       float64         `json:"left_quota"`       // 剩余配额
+	ExpireQuota     float64         `json:"expire_quota"`     // 过期配额
 	ExceedQuota     float64         `json:"exceed_quota"`     // 超额配额
 	NotifyThreshold float64         `json:"notify_threshold"` // 通知阈值
 	LimitQuota      float64         `json:"limit_quota"`      // 限制配额

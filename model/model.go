@@ -22,7 +22,7 @@ type Model struct {
 	ModelAlias   common.JSON `gorm:"column:model_alias;type:json" json:"model_alias"`      // 模型映射
 	ModelOptions common.JSON `gorm:"column:model_options;type:json" json:"model_options"`  // 模型配置
 
-	CreatedAt utils.MySQLTime `gorm:"column:created_at;index;not null" json:"created_at"`
+	CreatedAt utils.MySQLTime `gorm:"column:created_at;not null" json:"created_at"`
 	UpdatedAt utils.MySQLTime `gorm:"column:updated_at;not null" json:"updated_at"`
 	DeletedAt gorm.DeletedAt  `gorm:"column:deleted_at" json:"deleted_at"`
 }
