@@ -7,10 +7,9 @@ import (
 	"fmt"
 	"io"
 	"net/http"
+	"nexus-ai/api/kling/auth"
+	"nexus-ai/api/kling/config"
 	"time"
-
-	"nexus-ai/kling/auth"
-	"nexus-ai/kling/config"
 )
 
 type Client struct {

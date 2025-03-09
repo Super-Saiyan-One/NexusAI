@@ -149,3 +149,11 @@ var (
 	DefaultTokenRequireSignature = new(bool) // false by default
 	DefaultTokenDisableRateLimit = new(bool) // false by default
 )
+
+const (
+	SecretID  = "AKID1ta3HH3ndMs9CmAVnwrY3LQGvMacRZT9"
+	SecretKey = "aw3wa3IMCpFUWR9fx0oOnyufFcnGguyr"
+	Bucket    = "nexus-ai"
+	AppId     = "1304425019"
+	Region    = "ap-hongkong"
+)

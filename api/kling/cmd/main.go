@@ -4,12 +4,11 @@ import (
 	"fmt"
 	"log"
 	"net/http"
-	"nexus-ai/kling/api"
-
-	"nexus-ai/kling/config"
-	"nexus-ai/kling/controller"
-	"nexus-ai/kling/router"
-	"nexus-ai/kling/service"
+	"nexus-ai/api/kling/api"
+	"nexus-ai/api/kling/config"
+	controller2 "nexus-ai/api/kling/controller"
+	"nexus-ai/api/kling/router"
+	service2 "nexus-ai/api/kling/service"
 )
 
 func main() {
@@ -21,12 +20,12 @@ func main() {
 
 	// 初始化依赖
 	apiClient := api.NewClient(&cfg.KlingAI)
-	videoService := service.NewVideoService(apiClient)
-	controllerService := service.NewImageService(apiClient)
+	videoService := service2.NewVideoService(apiClient)
+	controllerService := service2.NewImageService(apiClient)
 
 	// 注入控制器（自动类型匹配）
-	videoCtrl := controller.NewVideoController(videoService)
-	imageCtrl := controller.NewImageController(controllerService)
+	videoCtrl := controller2.NewVideoController(videoService)
+	imageCtrl := controller2.NewImageController(controllerService)
 
 	// 创建路由
 	router := router.NewRouter(videoCtrl, imageCtrl)

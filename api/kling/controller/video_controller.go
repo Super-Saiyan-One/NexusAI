@@ -5,10 +5,9 @@ import (
 	"errors"
 	"fmt"
 	"net/http"
+	"nexus-ai/api/kling/models"
+	"nexus-ai/api/kling/service"
 	"strings"
-
-	"nexus-ai/kling/models"
-	"nexus-ai/kling/service"
 )
 
 type VideoController struct {
