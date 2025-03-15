@@ -29,3 +29,41 @@ var (
 	ValidResolutions = []Resolution{Res480p, Res720p, Res1080p, Res4k}
 	ValidDurations   = []Duration{Duration2s, Duration4s, Duration5s}
 )
+
+type ImageModelType string
+
+const (
+	ModelPhoton1     ImageModelType = "photon-1"
+	ModelPhotonFlash ImageModelType = "photon-flash-1"
+)
+
+type ImageReference struct {
+	URL    string  `json:"url"`
+	Weight float64 `json:"weight"`
+}
+
+type StyleReference struct {
+	URL    string  `json:"url"`
+	Weight float64 `json:"weight"`
+}
+
+type CharacterRef struct {
+	Identity0 struct {
+		Images []string `json:"images"`
+	} `json:"identity0"`
+}
+
+type ModifyImageRef struct {
+	URL    string  `json:"url"`
+	Weight float64 `json:"weight"`
+}
+
+var (
+	ValidAspectRatios = []string{
+		"1:1", "3:4", "4:3",
+		"9:16", "16:9", "9:21", "21:9",
+	}
+	ValidImageModels = []ImageModelType{
+		ModelPhoton1, ModelPhotonFlash,
+	}
+)

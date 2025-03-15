@@ -22,12 +22,14 @@ type CameraControl struct {
 
 // CameraConfig 摄像机运动配置
 type CameraConfig struct {
-	Horizontal float32 `json:"horizontal,omitempty" validate:"excluded_with_all=Vertical Pan Tilt Roll Zoom,omitempty,min=-10,max=10"`
-	Vertical   float32 `json:"vertical,omitempty" validate:"excluded_with_all=Horizontal Pan Tilt Roll Zoom,omitempty,min=-10,max=10"`
-	Pan        float32 `json:"pan,omitempty" validate:"excluded_with_all=Horizontal Vertical Tilt Roll Zoom,omitempty,min=-10,max=10"`
-	Tilt       float32 `json:"tilt,omitempty" validate:"excluded_with_all=Horizontal Vertical Pan Roll Zoom,omitempty,min=-10,max=10"`
-	Roll       float32 `json:"roll,omitempty" validate:"excluded_with_all=Horizontal Vertical Pan Tilt Zoom,omitempty,min=-10,max=10"`
-	Zoom       float32 `json:"zoom,omitempty" validate:"excluded_with_all=Horizontal Vertical Pan Tilt Roll,omitempty,min=-10,max=10"`
+	Horizontal float32       `json:"horizontal,omitempty" validate:"excluded_with_all=Vertical Pan Tilt Roll Zoom,omitempty,min=-10,max=10"`
+	Vertical   float32       `json:"vertical,omitempty" validate:"excluded_with_all=Horizontal Pan Tilt Roll Zoom,omitempty,min=-10,max=10"`
+	Pan        float32       `json:"pan,omitempty" validate:"excluded_with_all=Horizontal Vertical Tilt Roll Zoom,omitempty,min=-10,max=10"`
+	Tilt       float32       `json:"tilt,omitempty" validate:"excluded_with_all=Horizontal Vertical Pan Roll Zoom,omitempty,min=-10,max=10"`
+	Roll       float32       `json:"roll,omitempty" validate:"excluded_with_all=Horizontal Vertical Pan Tilt Zoom,omitempty,min=-10,max=10"`
+	Zoom       float32       `json:"zoom,omitempty" validate:"excluded_with_all=Horizontal Vertical Pan Tilt Roll,omitempty,min=-10,max=10"`
+	Type       string        `json:"type,omitempty" validate:"omitempty,oneof=simple down_back forward_up right_turn_forward left_turn_forward"`
+	Config     *CameraConfig `json:"config,omitempty" validate:"required_if=Type simple"`
 }
 
 // ImageRequest文生图视频请求参数
@@ -40,6 +42,35 @@ type TextToImageRequest struct {
 	N              int     `json:"n,omitempty" validate:"omitempty,min=1,max=9"`
 	AspectRatio    string  `json:"aspect_ratio,omitempty" validate:"omitempty,oneof=16:9 9:16 1:1 4:3 3:4 3:2 2:3"`
 	CallbackURL    string  `json:"callback_url,omitempty" validate:"omitempty,url"`
+}
+
+// ImageToVideoRequest 图生视频请求参数
+type ImageToVideoRequest struct {
+	ModelName      string         `json:"model_name,omitempty" validate:"omitempty,oneof=kling-v1 kling-v1-5 kling-v1-6"`
+	Image          string         `json:"image,omitempty" validate:"omitempty,url_or_base64"`
+	ImageTail      string         `json:"image_tail,omitempty" validate:"omitempty,url_or_base64"`
+	Prompt         string         `json:"prompt,omitempty" validate:"max=2500"`
+	NegativePrompt string         `json:"negative_prompt,omitempty" validate:"max=2500"`
+	CfgScale       float32        `json:"cfg_scale,omitempty" validate:"omitempty,min=0,max=1"`
+	Mode           string         `json:"mode,omitempty" validate:"omitempty,oneof=std pro"`
+	StaticMask     string         `json:"static_mask,omitempty" validate:"omitempty,url_or_base64"`
+	DynamicMasks   []DynamicMask  `json:"dynamic_masks,omitempty" validate:"max=6"`
+	CameraControl  *CameraControl `json:"camera_control,omitempty"`
+	Duration       string         `json:"duration,omitempty" validate:"omitempty,oneof=5 10"`
+	CallbackURL    string         `json:"callback_url,omitempty" validate:"omitempty,url"`
+	ExternalTaskID string         `json:"external_task_id,omitempty" validate:"omitempty,max=64"`
+}
+
+// DynamicMask 动态笔刷配置
+type DynamicMask struct {
+	Mask         string       `json:"mask" validate:"required,url_or_base64"`
+	Trajectories []Trajectory `json:"trajectories" validate:"required,min=2,max=77"`
+}
+
+// Trajectory 运动轨迹坐标
+type Trajectory struct {
+	X int `json:"x" validate:"required"`
+	Y int `json:"y" validate:"required"`
 }
 
 // 验证组标签

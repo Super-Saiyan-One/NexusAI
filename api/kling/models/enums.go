@@ -3,6 +3,7 @@ package models
 // 模型版本枚举
 const (
 	ModelKlingV1   = "kling-v1"
+	ModelKlingV1_5 = "kling-v1-5"
 	ModelKlingV1_6 = "kling-v1-6"
 )
 

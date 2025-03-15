@@ -31,7 +31,7 @@ func (c *VideoController) CreateVideoTask(w http.ResponseWriter, r *http.Request
 		return
 	}
 
-	resp, err := c.service.CreateVideoTask(r.Context(), req)
+	resp, err := c.service.CreateTextVideoTask(r.Context(), req)
 	if err != nil {
 		c.handleServiceError(w, err)
 		return
@@ -59,7 +59,7 @@ func (c *VideoController) GetVideoTask(w http.ResponseWriter, r *http.Request) {
 	}
 
 	// 调用服务层
-	resp, err := c.service.GetVideoTask(r.Context(), taskID, externalTaskID)
+	resp, err := c.service.GetVideoTask(r.Context(), taskID, externalTaskID, false)
 	if err != nil {
 		c.handleServiceError(w, err)
 		return
@@ -87,6 +87,63 @@ func (c *VideoController) handleServiceError(w http.ResponseWriter, err error) {
 		"code":    5000,
 		"message": "Internal server error",
 	})
+}
+
+// controller/video_controller.go
+func (c *VideoController) CreateImageToVideoTask(w http.ResponseWriter, r *http.Request) {
+	var req models.ImageToVideoRequest
+	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
+		respondError(w, http.StatusBadRequest, "Invalid request format")
+		return
+	}
+
+	// 自定义验证逻辑
+	if err := validateImageToVideoRequest(req); err != nil {
+		respondError(w, http.StatusBadRequest, err.Error())
+		return
+	}
+
+	resp, err := c.service.CreateImageToVideoTask(r.Context(), req)
+	if err != nil {
+		c.handleServiceError(w, err)
+		return
+	}
+
+	respondJSON(w, http.StatusCreated, resp)
+}
+
+// validateImageToVideoRequest 自定义验证逻辑
+func validateImageToVideoRequest(req models.ImageToVideoRequest) error {
+	// 检查图像参数互斥
+	if req.Image != "" && req.ImageTail != "" {
+		return errors.New("image and image_tail cannot be used together")
+	}
+
+	// 检查三组参数互斥
+	groupCount := 0
+	if req.Image != "" || req.ImageTail != "" {
+		groupCount++
+	}
+	if req.StaticMask != "" || len(req.DynamicMasks) > 0 {
+		groupCount++
+	}
+	if req.CameraControl != nil {
+		groupCount++
+	}
+	if groupCount > 1 {
+		return errors.New("image/image_tail, masks and camera_control are mutually exclusive")
+	}
+
+	// 检查动态笔刷轨迹点坐标
+	for _, dm := range req.DynamicMasks {
+		for _, t := range dm.Trajectories {
+			if t.X < 0 || t.Y < 0 {
+				return errors.New("trajectory coordinates must be positive")
+			}
+		}
+	}
+
+	return nil
 }
 
 // 参数验证函数

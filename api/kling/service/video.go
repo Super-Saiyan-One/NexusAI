@@ -10,8 +10,9 @@ import (
 
 // VideoService 视频服务接口定义
 type VideoService interface {
-	CreateVideoTask(ctx context.Context, req models2.TextToVideoRequest) (*models2.CreateTaskResponse, error)
-	GetVideoTask(ctx context.Context, taskID, externalTaskID string) (*models2.QueryTaskResponse, error)
+	CreateTextVideoTask(ctx context.Context, req models2.TextToVideoRequest) (*models2.CreateTaskResponse, error)
+	CreateImageToVideoTask(ctx context.Context, req models2.ImageToVideoRequest) (*models2.CreateTaskResponse, error)
+	GetVideoTask(ctx context.Context, taskID, externalTaskID string, isImageToVideo bool) (*models2.QueryTaskResponse, error)
 }
 
 // 私有实现结构体（小写开头表示不可导出）
@@ -30,7 +31,7 @@ func NewVideoService(apiClient *api.Client) VideoService {
 }
 
 // CreateVideoTask 创建视频任务实现
-func (s *videoServiceImpl) CreateVideoTask(
+func (s *videoServiceImpl) CreateTextVideoTask(
 	ctx context.Context,
 	req models2.TextToVideoRequest,
 ) (*models2.CreateTaskResponse, error) {
@@ -57,9 +58,9 @@ func (s *videoServiceImpl) GetVideoTask(
 	ctx context.Context,
 	taskID,
 	externalTaskID string,
+	isImageToVideo bool,
 ) (*models2.QueryTaskResponse, error) {
-	// 构建请求路径
-	path := buildTaskPath(taskID, externalTaskID)
+	path := buildTaskPath(taskID, externalTaskID, isImageToVideo)
 
 	apiReq, err := s.apiClient.CreateRequest(ctx, "GET", path, nil)
 	if err != nil {
@@ -78,14 +79,50 @@ func (s *videoServiceImpl) GetVideoTask(
 	return &resp, nil
 }
 
+// CreateImageToVideoTask 图生视频任务实现
+func (s *videoServiceImpl) CreateImageToVideoTask(
+	ctx context.Context,
+	req models2.ImageToVideoRequest,
+) (*models2.CreateTaskResponse, error) {
+	// 参数预处理
+	if req.ModelName == "" {
+		req.ModelName = "kling-v1"
+	}
+	if req.Duration == "" {
+		req.Duration = "5"
+	}
+
+	// 调用API客户端
+	apiReq, err := s.apiClient.CreateRequest(ctx, "POST", "/v1/videos/image2video", req)
+	if err != nil {
+		return nil, fmt.Errorf("failed to create API request: %w", err)
+	}
+
+	var resp models2.CreateTaskResponse
+	if err := s.apiClient.DoRequest(apiReq, &resp); err != nil {
+		return nil, wrapAPIError(err)
+	}
+
+	if !resp.IsSuccess() {
+		return nil, NewServiceError(resp.Code, resp.Message)
+	}
+
+	return &resp, nil
+}
+
 /************************ 内部辅助函数 ************************/
 
 // buildTaskPath 构建任务查询路径
-func buildTaskPath(taskID, externalID string) string {
-	if externalID != "" {
-		return fmt.Sprintf("/v1/videos/text2video?external_task_id=%s", externalID)
+func buildTaskPath(taskID, externalID string, isImageToVideo bool) string {
+	basePath := "/v1/videos/text2video"
+	if isImageToVideo {
+		basePath = "/v1/videos/image2video"
 	}
-	return fmt.Sprintf("/v1/videos/text2video/%s", taskID)
+
+	if externalID != "" {
+		return fmt.Sprintf("%s?external_task_id=%s", basePath, externalID)
+	}
+	return fmt.Sprintf("%s/%s", basePath, taskID)
 }
 
 // wrapAPIError 包装API错误
